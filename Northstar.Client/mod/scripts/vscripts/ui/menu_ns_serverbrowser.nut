@@ -1009,14 +1009,14 @@ void function OnServerSelected_Threaded( string password = "" )
 	if ( NSIsAuthenticatingWithServer() )
 		return
 	NSTryAuthWithServer( file.lastSelectedServer.index, password )
-	ToggleConnectingHUD( true )
+	// ToggleConnectingHUD( true )
 
 	while ( NSIsAuthenticatingWithServer() && !file.cancelConnection )
 	{
 		WaitFrame()
 	}
 
-	ToggleConnectingHUD( false )
+	// ToggleConnectingHUD( false )
 
 	if ( file.cancelConnection )
 	{
@@ -1216,14 +1216,14 @@ void function ThreadedAuthAndConnectToServer( string password = "", bool modsCha
 
     OpenDialog( connectingDialogData )
 
-	//ToggleConnectingHUD( true )
+	// ToggleConnectingHUD( true )
 
 	while ( NSIsAuthenticatingWithServer() && !file.cancelConnection )
 	{
 		WaitFrame()
 	}
 
-	//ToggleConnectingHUD( false )
+	// ToggleConnectingHUD( false )
 
 	if ( file.cancelConnection )
 	{
