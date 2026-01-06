@@ -633,7 +633,7 @@ void function RespawnAsTitan( entity player)
 	if ( file.recalculateRespawnAsTitanStartPointCallback != null )
 		spawnpoint = file.recalculateRespawnAsTitanStartPointCallback( player, spawnpoint )
 
-	ToggleSpawnNodeInUse( spawnpoint, true )
+	// ToggleSpawnNodeInUse( spawnpoint, true )
  	TitanLoadoutDef titanLoadout = GetTitanLoadoutForPlayer( player )
 	
 	asset model = GetPlayerSettingsAssetForClassName( titanLoadout.setFile, "bodymodel" )
@@ -689,8 +689,8 @@ void function RespawnAsTitan( entity player)
 		if ( IsValid( camera ) )
 			camera.Destroy()
 		
-		if ( IsValid( spawnpoint ) )
-			ToggleSpawnNodeInUse( spawnpoint, false )
+		// if ( IsValid( spawnpoint ) )
+		// 	ToggleSpawnNodeInUse( spawnpoint, false )
 	})
 
 	waitthread TitanHotDrop( titan, "at_hotdrop_01", spawnpoint.GetOrigin(), spawnpoint.GetAngles(), player, camera ) // do hotdrop anim

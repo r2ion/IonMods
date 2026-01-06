@@ -2,12 +2,13 @@ untyped
 
 global function Spawn_Init
 global function FindSpawnPoint
-global function ToggleSpawnNodeInUse
 
 global function SetSpawnpointGamemodeOverride
 global function GetSpawnpointGamemodeOverride
 global function AddSpawnpointValidationRule
 
+global function SetRespawnsEnabled
+global function RespawnsEnabled
 global function CreateNoSpawnArea
 global function DeleteNoSpawnArea
 global function SpawnPointInNoSpawnArea
@@ -19,10 +20,6 @@ global function DecideSpawnZone_Generic
 
 global function IsSpawnpointValid
 global function IsValidGamemodeSpawnpoint
-
-#if DEV
-global function ShowSpawnPoints
-#endif
 
 global struct spawnZoneProperties{
 	int controllingTeam = TEAM_UNASSIGNED
@@ -49,6 +46,7 @@ struct NoSpawnArea
 }
 
 struct {
+	bool respawnsEnabled = true
 	array<NoSpawnArea> noSpawnAreas
 	string spawnpointGamemodeOverride
 	array< bool functionref( entity, int ) > customSpawnpointValidationRules
@@ -104,6 +102,16 @@ void function Spawn_Init()
 	SpawnPoints_SetRatingMultiplier_PetTitan( 2.0 )
 	
 	file.shouldCreateMinimapSpawnzones = GetCurrentPlaylistVarInt( "spawn_zone_enabled", 1 ) != 0
+}
+
+void function SetRespawnsEnabled( bool enabled )
+{
+	file.respawnsEnabled = enabled
+}
+
+bool function RespawnsEnabled()
+{
+	return file.respawnsEnabled
 }
 
 void function InitSpawnpoint( entity spawnpoint )
@@ -198,7 +206,7 @@ bool function SpawnPointInNoSpawnArea( vector origin, int team )
 	return false
 }
 
-bool function IsSpawnpointValidDrop( entity spawnpoint )
+bool function IsSpawnpointValidDrop( entity spawnpoint, int team )
 {
 	if ( spawnpoint.s.inUse )
 		return false
@@ -254,8 +262,6 @@ string function GetSpawnpointGamemodeOverride()
 entity function FindSpawnPoint( entity player, bool isTitan, bool useStartSpawnpoint )
 {
 	int team = player.GetTeam()
-	if ( HasSwitchedSides() == 1 && useStartSpawnpoint ) // Start Points don't invert like Dropships do for rounds
-		team = GetOtherTeam( team )
 	
 	array<entity> spawnpoints
 	if ( useStartSpawnpoint )
@@ -274,7 +280,7 @@ entity function FindSpawnPoint( entity player, bool isTitan, bool useStartSpawnp
 			SpawnPoints_SortTitanStart()
 		else
 			SpawnPoints_SortTitan()
-		
+			
 		spawnpoints = useStartSpawnpoint ? SpawnPoints_GetTitanStart( team ) : SpawnPoints_GetTitan()
 	}
 	else
@@ -283,25 +289,17 @@ entity function FindSpawnPoint( entity player, bool isTitan, bool useStartSpawnp
 			SpawnPoints_SortPilotStart()
 		else
 			SpawnPoints_SortPilot()
-		
+			
 		spawnpoints = useStartSpawnpoint ? SpawnPoints_GetPilotStart( team ) : SpawnPoints_GetPilot()
 	}
 	
 	entity spawnpoint = GetBestSpawnpoint( player, spawnpoints, isTitan )
-	
-	spawnpoint.e.spawnTime = Time()
+		
+	spawnpoint.s.lastUsedTime = Time()
 	player.SetLastSpawnPoint( spawnpoint )
 	
 	//SpawnPoints_DiscardRatings()
-	
-	#if DEV
-	foreach( string k, float v in spawnpoint.GetRatingData() )
-		print( k + ": " + v )
-	print( "team: " + spawnpoint.GetTeam() )
-	print( "scriptname: " + spawnpoint.GetScriptName() )
-	print( "targetname: " + spawnpoint.GetTargetName() )
-	#endif
-
+		
 	return spawnpoint
 }
 
@@ -318,36 +316,18 @@ entity function GetBestSpawnpoint( entity player, array<entity> spawnpoints, boo
 		else
 			spawnpoints = GetEntArrayByClass_Expensive( "info_spawnpoint_human" )
 	}
+	
 	foreach ( entity spawnpoint in spawnpoints )
 	{
 		if ( IsSpawnpointValid( spawnpoint, player.GetTeam() ) )
 			validSpawns.append( spawnpoint )
 	}
 	
-	if ( !validSpawns.len() ) // First validity check, retry without LOS
+	if ( !validSpawns.len() ) // First validity check
 	{
-		CodeWarning( "No valid spawn points found, attempting spawn points without Line of Sight checks" )
+		CodeWarning( "Map has no valid spawn points for " + GAMETYPE + " gamemode, attempting any other possible spawn point" )
 		foreach ( entity spawnpoint in spawnpoints )
-		{
-			if ( IsSpawnpointValid( spawnpoint, player.GetTeam(), true ) )
-				validSpawns.append( spawnpoint )
-		}
-	}
-
-	if ( !validSpawns.len() ) // Second validity check, retry without LOS and ignoring time since last spawn
-	{
-		CodeWarning( "No valid spawn points found, attempting spawn points without Line of Sight checks and ignoring time since last spawn" )
-		foreach ( entity spawnpoint in spawnpoints )
-		{
-			if ( IsSpawnpointValid( spawnpoint, player.GetTeam(), true, true ) )
-				validSpawns.append( spawnpoint )
-		}
-	}
-
-	if ( !validSpawns.len() )
-	{
-		printt( "Warning: No valid spawn points found for player: " + player + " trying to use all spawn points" )
-		validSpawns.extend( spawnpoints )
+			validSpawns.append( spawnpoint )
 	}
 	
 	if ( !validSpawns.len() ) // On all validity check, just gather the most basic spawn
@@ -359,6 +339,7 @@ entity function GetBestSpawnpoint( entity player, array<entity> spawnpoints, boo
 		{
 			start.s.lastUsedTime <- -9999.0
 			validSpawns.append( start )
+		}
 		else
 			throw( "Map has no player spawns at all" )
 	}
@@ -375,7 +356,6 @@ bool function IsSpawnpointValid( entity spawnpoint, int team )
 		return false
 	
 	foreach ( bool functionref( entity, int ) customValidationRule in file.customSpawnpointValidationRules )
-	{
 		if ( !customValidationRule( spawnpoint, team ) )
 			return false
 
@@ -390,14 +370,12 @@ bool function IsSpawnpointValid( entity spawnpoint, int team )
 	
 	if ( SpawnPointInNoSpawnArea( spawnpoint.GetOrigin(), team ) )
 		return false
-	
-	if ( skipLineOfSightChecks )
-		return true
 
 	// Line of Sight Check, could use IsVisibleToEnemies but apparently that considers only players, not NPCs
+	array< entity > enemyTitans = GetTitanArrayOfEnemies( team )
 	if ( GetConVarBool( "spawnpoint_avoid_npc_titan_sight" ) )
 	{
-		foreach ( titan in GetTitanArrayOfEnemies( team ) )
+		foreach ( titan in enemyTitans )
 		{
 			if ( IsAlive( titan ) && titan.IsNPC() && titan.CanSee( spawnpoint ) )
 				return false
@@ -441,7 +419,7 @@ bool function IsValidGamemodeSpawnpoint( entity spawnpoint )
 */
 
 void function RateSpawnpoints_Generic( int checkClass, array<entity> spawnpoints, int team, entity player )
-{
+{	
 	foreach ( entity spawnpoint in spawnpoints )
 	{
 		float currentRating = 0.0
@@ -468,9 +446,9 @@ void function RateSpawnpoints_Frontline( int checkClass, array<entity> spawnpoin
 	Frontline currentFrontline = GetFrontline( team )
 	
 	vector inverseFrontlineDir = currentFrontline.combatDir * -1
-	vector adjustedPosition = currentFrontline.origin + currentFrontline.combatDir * 4000
+	vector adjustedPosition = currentFrontline.origin + currentFrontline.combatDir * 8000
 	
-	SpawnPoints_InitFrontlineData( adjustedPosition, currentFrontline.combatDir, currentFrontline.origin, currentFrontline.friendlyCenter, 2000 )
+	SpawnPoints_InitFrontlineData( adjustedPosition, currentFrontline.combatDir, currentFrontline.origin, currentFrontline.friendlyCenter, 4000 )
 	
 	foreach ( entity spawnpoint in spawnpoints )
 	{
@@ -584,7 +562,7 @@ void function RateSpawnpoints_SpawnZones( int checkClass, array<entity> spawnpoi
 			rating = 10.0
 		else
 			rating = 2.0 * ( 1 - ( distance / 3000.0 ) )
-		
+			
 		spawn.CalculateRating( checkClass, team, rating, rating * 0.25 )
 	}
 }
@@ -603,17 +581,17 @@ entity function DecideSpawnZone_Generic( array<entity> spawnzones, int team )
 	vector averageFriendlySpawns
 	foreach ( entity spawn in startSpawns )
 		averageFriendlySpawns += spawn.GetOrigin()
-
+	
 	averageFriendlySpawns /= startSpawns.len()
-
+	
 	vector averageEnemySpawns
 	foreach ( entity spawn in enemyStartSpawns )
 		averageEnemySpawns += spawn.GetOrigin()
-
+	
 	averageEnemySpawns /= enemyStartSpawns.len()
-
+	
 	float baseDistance = Distance2D( averageFriendlySpawns, averageEnemySpawns )
-
+	
 	if ( TeamHasDirtySpawnzone( team ) )
 	{
 		array<entity> possibleZones
@@ -692,68 +670,9 @@ int function SortPossibleZones( entity a, entity b )
 {
 	if ( mapSpawnZones[a].zoneRating > mapSpawnZones[b].zoneRating )
 		return -1
-			
+		
 	if ( mapSpawnZones[b].zoneRating > mapSpawnZones[a].zoneRating )
 		return 1
-			
+		
 	return 0
 }
-
-
-
-
-
-
-
-
-
-
-
-/*
-██████  ███████ ██████  ██    ██  ██████   ██████  ██ ███    ██  ██████  
-██   ██ ██      ██   ██ ██    ██ ██       ██       ██ ████   ██ ██       
-██   ██ █████   ██████  ██    ██ ██   ███ ██   ███ ██ ██ ██  ██ ██   ███ 
-██   ██ ██      ██   ██ ██    ██ ██    ██ ██    ██ ██ ██  ██ ██ ██    ██ 
-██████  ███████ ██████   ██████   ██████   ██████  ██ ██   ████  ██████  
-*/
-
-#if DEV
-void function ShowSpawnPoints()
-{
-	array< entity > spawnPoints = SpawnPoints_GetTitan()
-	foreach ( sPoint in spawnPoints )
-		DebugDrawSpawnpoint( sPoint, 255, 255, 0, false, 600 )
-
-	spawnPoints = SpawnPoints_GetPilot()
-	foreach ( sPoint in spawnPoints )
-		DebugDrawSpawnpoint( sPoint, 255, 255, 0, false, 600 )
-
-	spawnPoints = SpawnPoints_GetDropPod()
-	foreach ( sPoint in spawnPoints )
-		DebugDrawSpawnpoint( sPoint, 255, 255, 0, false, 600 )
-
-	spawnPoints = SpawnPoints_GetTitanStart( TEAM_MILITIA )
-	foreach ( sPoint in spawnPoints )
-		DebugDrawSpawnpoint( sPoint, 255, 0, 0, false, 600 )
-
-	spawnPoints = SpawnPoints_GetPilotStart( TEAM_MILITIA )
-	foreach ( sPoint in spawnPoints )
-		DebugDrawSpawnpoint( sPoint, 255, 0, 0, false, 600 )
-
-	spawnPoints = SpawnPoints_GetDropPodStart( TEAM_MILITIA )
-	foreach ( sPoint in spawnPoints )
-		DebugDrawSpawnpoint( sPoint, 255, 0, 0, false, 600 )
-	
-	spawnPoints = SpawnPoints_GetTitanStart( TEAM_IMC )
-	foreach ( sPoint in spawnPoints )
-		DebugDrawSpawnpoint( sPoint, 0, 0, 255, false, 600 )
-
-	spawnPoints = SpawnPoints_GetPilotStart( TEAM_IMC )
-	foreach ( sPoint in spawnPoints )
-		DebugDrawSpawnpoint( sPoint, 0, 0, 255, false, 600 )
-
-	spawnPoints = SpawnPoints_GetDropPodStart( TEAM_IMC )
-	foreach ( sPoint in spawnPoints )
-		DebugDrawSpawnpoint( sPoint, 0, 0, 255, false, 600 )
-}
-#endif
