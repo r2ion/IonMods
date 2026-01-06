@@ -16,15 +16,8 @@ global enum eModeMenuModeCategory
 	SIZE
 }
 
-
-const array<string> blockedModes =
-[
-	"fd_easy",
-	"fd_normal",
-	"fd_hard",
-	"fd_master",
-	"fd_insane"
-]
+// List of blocked modes due to them being unfinished
+const array<string> blockedModes = []
 
 struct ListEntry_t {
 	string mode
