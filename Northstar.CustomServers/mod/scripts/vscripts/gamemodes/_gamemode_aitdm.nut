@@ -666,7 +666,10 @@ void function OnSpectreLeeched( entity spectre, entity player )
 	// Add score + update network int to trigger the "Score +n" popup
 	AddTeamScore( player.GetTeam(), 1 )
 	player.AddToPlayerGameStat( PGS_ASSAULT_SCORE, 1 )
-	player.SetPlayerNetInt( "AT_bonusPoints", player.GetPlayerGameStat( PGS_ASSAULT_SCORE ) )
+	int assaultScore = player.GetPlayerGameStat( PGS_ASSAULT_SCORE )
+	int assaultScore256 = assaultScore / 256
+	player.SetPlayerNetInt( "AT_bonusPoints256", assaultScore256 )
+	player.SetPlayerNetInt( "AT_bonusPoints", assaultScore - assaultScore256 * 256 )
 }
 
 void function OnReaperKilled( entity victim, entity attacker, var damageInfo )
