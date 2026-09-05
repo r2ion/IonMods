@@ -18,6 +18,16 @@ global function AITdm_SetLevelSpectres
 global function AITdm_SetLevelStalkers
 global function AITdm_SetLevelReapers
 
+struct AITdmAssaultOrder
+{
+	entity npc
+	entity bossPlayer
+	vector goal
+	bool assigned = false
+	bool failed = false
+	float retryTime = 0.0
+}
+
 struct
 {
 	// Due to team based escalation everything is an array
@@ -25,6 +35,7 @@ struct
 	array<array<string> > podEntities = [ [ "npc_soldier" ], [ "npc_soldier" ] ]
 	array<bool> reapers = [ false, false ]
 	table<int, float> reaperRespawnTimes = {}
+	table<int, int> nextFrontlineSquad = { [TEAM_IMC] = 0, [TEAM_MILITIA] = 0 }
 
 	// default settings
 	int squadsPerTeam = SQUADS_PER_TEAM
@@ -36,6 +47,8 @@ struct
 
 void function GamemodeAITdm_Init()
 {
+	RegisterSignal( "AITdm_StopAssault" )
+
 	SetSpawnpointGamemodeOverride( TEAM_DEATHMATCH ) // use TDM spawns as vanilla game has no spawns explicitly defined for aitdm
 
 	AddCallback_GameStateEnter( eGameState.Prematch, OnPrematchStart )
@@ -508,153 +521,202 @@ int function GetSpawnPointIndex( array<entity> points, int team )
 	return RandomInt( points.len() )
 }
 
-// tells infantry where to go
-// In vanilla there seem to be preset paths ai follow to get to the other teams vone and capture it
-// AI can also flee deeper into their zone suggesting someone spent way too much time on this
 void function SquadHandler( array<entity> guys )
 {
+	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+	ArrayRemoveDead( guys )
 	if ( guys.len() == 0 )
 		return
+
 	int team = guys[ 0 ].GetTeam()
-	// show the squad enemy radar
+	string squadName = expect string( guys[ 0 ].kv.squadname )
+	bool isSpectreSquad = guys[ 0 ].GetClassName() == "npc_spectre"
+	int squadIndex = file.nextFrontlineSquad[ team ]
+	file.nextFrontlineSquad[ team ] = ( squadIndex + 1 ) % 3
+
+	array<AITdmAssaultOrder> orders
 	array<entity> players = GetPlayerArrayOfEnemies( team )
 	foreach ( entity guy in guys )
 	{
-		if ( IsAlive( guy ) )
-		{
-			foreach ( player in players )
-				guy.Minimap_AlwaysShow( 0, player )
-		}
+		foreach ( player in players )
+			guy.Minimap_AlwaysShow( 0, player )
+
+		AITdmAssaultOrder order
+		order.npc = guy
+		order.bossPlayer = guy.GetBossPlayer()
+		orders.append( order )
+		thread AITdm_WatchAssaultPathFailures( order )
 	}
 
-	bool frontlineReady = Flag( "FrontlineInitiated" ) && GetCurrentFrontline() != null
-
-	// If frontline is not ready, fall back to old random-enemy assault behavior
-	if ( !frontlineReady )
-	{
-		// Not all maps have assaultpoints / have weird assault points ( looking at you ac )
-		// So we use enemies with a large radius
-		while ( GetNPCArrayOfEnemies( team ).len() == 0 ) // if we can't find any enemy npcs, keep waiting
-			WaitFrame()
-
-		// our waiting is end, check if any soldiers left
-		bool squadAlive = false
-		foreach ( entity guy in guys )
+	OnThreadEnd(
+		function() : ( orders )
 		{
-			if ( IsAlive( guy ) )
-				squadAlive = true
-			else
-				guys.removebyvalue( guy )
+			foreach ( order in orders )
+			{
+				if ( IsValid( order.npc ) )
+					order.npc.Signal( "AITdm_StopAssault" )
+			}
 		}
-		if ( !squadAlive )
-			return
+	)
 
-		array<entity> points = GetNPCArrayOfEnemies( team )
+	var lastFrontline = null
+	entity lastGoalEnt = null
+	vector lastAnchor = < 0, 0, 0 >
+	float nextEnemyGoalTime = 0.0
+	array<vector> positions
 
-		vector point
-		point = points[ RandomInt( points.len() ) ].GetOrigin()
-
-		// Setup AI, first assault point
-		foreach ( guy in guys )
-		{
-			if ( IsAlive( guy ) )
-			{
-				guy.EnableNPCFlag( NPC_ALLOW_PATROL | NPC_ALLOW_INVESTIGATE | NPC_ALLOW_HAND_SIGNALS | NPC_ALLOW_FLEE )
-				guy.AssaultPoint( point )
-				guy.AssaultSetGoalRadius( 1600 ) // 1600 is minimum for npc_stalker, works fine for others
-			}
-			// thread AITdm_CleanupBoredNPCThread( guy )
-		}
-
-		// Every 5 - 15 secs change AssaultPoint
-		while ( true )
-		{
-			foreach ( guy in guys )
-			{
-				// Check if alive
-				if ( !IsAlive( guy ) )
-				{
-					guys.removebyvalue( guy )
-					continue
-				}
-				// Stop func if our squad has been killed off
-				if ( guys.len() == 0 )
-					return
-			}
-
-			// Get point and send our whole squad to it
-			points = GetNPCArrayOfEnemies( team )
-			if ( points.len() == 0 ) // can't find any points here
-			{
-				WaitFrame()
-				continue
-			}
-
-			point = points[ RandomInt( points.len() ) ].GetOrigin()
-
-			foreach ( guy in guys )
-			{
-				if ( IsAlive( guy ) )
-					guy.AssaultPoint( point )
-			}
-
-			wait RandomFloatRange( 5.0, 15.0 )
-		}
-		return
-	}
-
-	// Frontline path: continuously push squads toward the current frontline goal
 	while ( true )
 	{
-		// prune dead entries and grab a representative alive member
-		entity firstAlive = null
-		foreach ( entity guy in guys )
+		for ( int i = orders.len() - 1; i >= 0; i-- )
 		{
-			if ( !IsAlive( guy ) )
-			{
-				guys.removebyvalue( guy )
+			entity guy = orders[ i ].npc
+			if ( IsAlive( guy ) && guy.GetTeam() == team &&
+				guy.GetBossPlayer() == orders[ i ].bossPlayer && expect string( guy.kv.squadname ) == squadName )
 				continue
-			}
-			if ( firstAlive == null )
-				firstAlive = guy
-		}
 
-		if ( firstAlive == null )
+			if ( IsValid( guy ) )
+				guy.Signal( "AITdm_StopAssault" )
+			orders.remove( i )
+		}
+		if ( orders.len() == 0 )
 			return
 
 		var frontline = GetCurrentFrontline()
-		if ( frontline == null )
+		entity goalEnt = null
+		vector anchor = lastAnchor
+		bool changed = false
+		if ( frontline != null )
 		{
-			wait 0.5
+			goalEnt = expect entity( GetFrontlineGoal( squadIndex, team, isSpectreSquad ) )
+			anchor = goalEnt.GetOrigin()
+			changed = frontline != lastFrontline || goalEnt != lastGoalEnt || anchor != lastAnchor
+		}
+		else if ( Time() >= nextEnemyGoalTime )
+		{
+			array<entity> enemies = GetNPCArrayOfEnemies( team )
+			ArrayRemoveDead( enemies )
+			if ( enemies.len() == 0 )
+			{
+				wait 1.0
+				continue
+			}
+			anchor = enemies[ RandomInt( enemies.len() ) ].GetOrigin()
+			nextEnemyGoalTime = Time() + RandomFloatRange( 5.0, 15.0 )
+			changed = true
+		}
+
+		if ( changed )
+		{
+			lastFrontline = frontline
+			lastGoalEnt = goalEnt
+			lastAnchor = anchor
+			positions.clear()
+			foreach ( order in orders )
+			{
+				order.assigned = false
+				order.failed = false
+				order.retryTime = 0.0
+			}
+		}
+		if ( positions.len() == 0 )
+			positions = AITdm_GetAssaultPositions( anchor, orders[ 0 ].npc )
+
+		float radius = STANDARDGOALRADIUS
+		if ( IsValid( goalEnt ) && goalEnt.HasKey( "script_goal_radius" ) )
+			radius = float( goalEnt.kv.script_goal_radius )
+
+		foreach ( order in orders )
+		{
+			if ( order.assigned && !order.failed )
+				continue
+			if ( Time() < order.retryTime )
+				continue
+
+			vector ornull goal = AITdm_SelectAssaultPosition( order, positions, orders )
+			order.retryTime = Time() + 3.0
+			if ( goal == null )
+				continue
+
+			order.goal = expect vector( goal )
+			order.assigned = true
+			order.failed = false
+			order.npc.AssaultPoint( order.goal )
+			order.npc.AssaultSetGoalRadius( max( radius, order.npc.GetMinGoalRadius() ) )
+		}
+
+		wait 1.0
+	}
+}
+
+array<vector> function AITdm_GetAssaultPositions( vector anchor, entity guy )
+{
+	array<vector> positions
+	vector ornull clamped = NavMesh_ClampPointForAIWithExtents( anchor, guy, < 128, 128, 128 > )
+	if ( clamped == null )
+		return positions
+
+	vector center = expect vector( clamped )
+	array<vector> neighbors = NavMesh_GetNeighborPositions( center, HULL_HUMAN, 16 )
+	neighbors.insert( 0, center )
+	foreach ( point in neighbors )
+	{
+		if ( Distance2DSqr( point, anchor ) > 512 * 512 || fabs( point.z - anchor.z ) > 128 )
+			continue
+		positions.append( point )
+	}
+	return ArrayClosestVector( positions, anchor )
+}
+
+vector ornull function AITdm_SelectAssaultPosition( AITdmAssaultOrder order, array<vector> positions, array<AITdmAssaultOrder> orders )
+{
+	vector ornull sharedPosition = null
+	vector ornull retryPosition = null
+	foreach ( point in positions )
+	{
+		if ( order.failed && Distance2DSqr( order.goal, point ) < 64 * 64 )
+		{
+			if ( retryPosition == null && NavMesh_IsPosReachableForAI( order.npc, point ) )
+				retryPosition = point
 			continue
 		}
 
-		// Determine if this squad is spectre-based without assuming the entity exposes IsSpectre()
-		local isSpectreSquad = false
-		if ( IsAlive( firstAlive ) && firstAlive.IsNPC() )
+		bool occupied = false
+		foreach ( other in orders )
 		{
-			string className = firstAlive.GetClassName()
-			isSpectreSquad = className == "npc_spectre"
+			if ( other != order && other.assigned && Distance2DSqr( other.goal, point ) < 64 * 64 )
+			{
+				occupied = true
+				break
+			}
 		}
-		int squadIndex = 0 // map squad index by chunking groups of size 3; keeps positions spread
-		if ( guys.len() )
-			squadIndex = firstAlive.entindex() % 3 // lightweight spread
+		if ( occupied && sharedPosition != null )
+			continue
+		if ( !NavMesh_IsPosReachableForAI( order.npc, point ) )
+			continue
+		if ( !occupied )
+			return point
 
-		local goalEnt = GetFrontlineGoal( squadIndex, team, isSpectreSquad )
-		local goal = goalEnt != null ? goalEnt.GetOrigin() : frontline.frontlineCenter
-		local dir = GetTeamCombatDir( frontline, team )
-		goal += dir * 256.0
+		sharedPosition = point
+	}
+	return sharedPosition != null ? sharedPosition : retryPosition
+}
 
-		foreach ( entity guy in guys )
+void function AITdm_WatchAssaultPathFailures( AITdmAssaultOrder order )
+{
+	order.npc.EndSignal( "OnDeath" )
+	order.npc.EndSignal( "OnDestroy" )
+	order.npc.EndSignal( "OnLeeched" )
+	order.npc.EndSignal( "AITdm_StopAssault" )
+	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+
+	while ( true )
+	{
+		order.npc.WaitSignal( "OnFailedToPath" )
+		if ( !order.failed )
 		{
-			if ( !IsAlive( guy ) )
-				continue
-			guy.EnableNPCFlag( NPC_ALLOW_PATROL | NPC_ALLOW_INVESTIGATE | NPC_ALLOW_HAND_SIGNALS | NPC_ALLOW_FLEE )
-			guy.AssaultPoint( goal )
-			guy.AssaultSetGoalRadius( 1600 )
+			order.failed = true
+			order.retryTime = Time() + 3.0
 		}
-
-		wait RandomFloatRange( 4.0, 8.0 )
 	}
 }
 

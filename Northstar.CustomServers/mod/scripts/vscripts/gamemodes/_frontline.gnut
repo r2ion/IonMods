@@ -379,14 +379,11 @@ function CheckFrontlineOverrun( losingTeam )
 		return
 	local center = frontline.frontlineCenter
 	local combatDir = GetTeamCombatDir( frontline, otherTeam )
-	local playerArray = GetPlayerArray()
+	local playerArray = GetPlayerArray_Alive()
 	local rest = 0
 
 	foreach ( entity player in playerArray )
 	{
-		if ( !IsAlive( player ) )
-			continue
-
 		local team = player.GetTeam()
 		local offsetCenter = team == losingTeam ? center - combatDir * 512 : center
 
