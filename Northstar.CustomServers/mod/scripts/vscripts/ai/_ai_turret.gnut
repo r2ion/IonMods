@@ -1,22 +1,558 @@
+untyped
 global function AiTurret_Init
 global function GetMegaTurretLinkedToPanel
 global function MegaTurretUsabilityFunc
 global function SetUsePromptForPanel
 
+const string MEGA_TURRET_CANCEL_CAPTURE = "MegaTurretCancelCapture"
+const asset MEGA_TURRET_DEATH_FX = $"xo_spark_med"
+
+struct MegaTurretSite
+{
+	entity turret
+	entity panel
+	vector origin
+	vector angles
+	string targetname
+	string aiSettings
+	string weaponClass
+	array<string> weaponMods
+	array<string> motionSounds
+	asset model
+	int maxHealth
+	bool drawTargetHealthBar = false
+	bool capturing = false
+	entity capturingPlayer
+	int capturingTeam = TEAM_UNASSIGNED
+	bool replacing = false
+	bool repairing = false
+}
+
+struct
+{
+	bool entitiesLoaded = false
+	array<MegaTurretSite> sites
+} file
+
 void function AiTurret_Init()
 {
+	PrecacheParticleSystem( MEGA_TURRET_DEATH_FX )
+	RegisterSignal( MEGA_TURRET_CANCEL_CAPTURE )
+	AddSpawnCallback( "npc_turret_mega", MegaTurret_OnSpawn )
+	AddDeathCallback( "npc_turret_mega", MegaTurret_OnDeath )
+	AddCallback_EntityChangedTeam( "npc_turret_mega", MegaTurret_OnTeamChanged )
+	AddCallback_EntityChangedTeam( "player", MegaTurret_OnPlayerTeamChanged )
+	AddCallback_OnClientDisconnected( MegaTurret_OnPlayerDisconnected )
+	AddCallback_EntitiesDidLoad( MegaTurret_EntitiesDidLoad )
 }
 
 entity function GetMegaTurretLinkedToPanel( entity panel )
 {
-	return null
+	int index = MegaTurret_FindPanel( panel )
+	if ( index == -1 || !IsValid( file.sites[index].turret ) )
+		return null
+	// Dead NPCs are omitted by GetNPCArrayByClass. The panel must retain its
+	// wreck during the repair period and follow the replacement afterwards.
+	return file.sites[index].turret
 }
 
 string function MegaTurretUsabilityFunc( var turret, var panel )
 {
-	return "pilot"
+	expect entity( turret )
+	if ( !IsAlive( turret ) || turret.GetTurretState() == TURRET_INACTIVE )
+		return "pilot"
+	return IsIMCOrMilitiaTeam( turret.GetTeam() ) ? "enemies pilot" : "pilot"
 }
 
 void function SetUsePromptForPanel( var panel, var turret )
 {
+	expect entity( panel )
+	expect entity( turret )
+	string prompt = IsAlive( turret ) && turret.GetTeam() == TEAM_UNASSIGNED
+		? "#TURRET_HEAVY_ACTIVATE" : "#TURRET_HEAVY_REPAIR_CAPTURE"
+	panel.SetUsePrompts( prompt, prompt )
+}
+
+int function MegaTurret_FindTurret( entity turret )
+{
+	foreach ( int index, MegaTurretSite site in file.sites )
+	{
+		if ( site.turret == turret )
+			return index
+	}
+	return -1
+}
+
+int function MegaTurret_FindPanel( entity panel )
+{
+	foreach ( int index, MegaTurretSite site in file.sites )
+	{
+		if ( site.panel == panel )
+			return index
+	}
+	return -1
+}
+
+void function MegaTurret_OnSpawn( entity turret )
+{
+	if ( file.entitiesLoaded )
+		thread MegaTurret_LinkAfterSpawn( turret )
+}
+
+void function MegaTurret_EntitiesDidLoad()
+{
+	file.entitiesLoaded = true
+	foreach ( entity turret in GetEntArrayByClass_Expensive( "npc_turret_mega" ) )
+		thread MegaTurret_LinkAfterSpawn( turret )
+}
+
+void function MegaTurret_LinkAfterSpawn( entity turret )
+{
+	turret.EndSignal( "OnDestroy" )
+	// Let native spawning and map-specific spawn callbacks finish before
+	// saving the configuration and disabling native auto-search.
+	WaitFrame()
+	if ( MegaTurret_FindTurret( turret ) != -1 )
+		return
+
+	string targetname = turret.GetTargetName()
+	if ( targetname == "" )
+		return
+
+	entity linkedPanel
+	foreach ( entity panel in GetAllControlPanels() )
+	{
+		if ( !IsValid( panel ) || MegaTurret_FindPanel( panel ) != -1 )
+			continue
+		// Resolve target keys through the engine, including R1 wildcard
+		// targets. The panels themselves may have duplicate targetnames.
+		if ( panel.s.remoteTurret != null || !GetEntArrayByNameWildCard_Expensive( panel.GetValueForKey( "target" ) ).contains( turret ) )
+			continue
+		// Leave panels already controlled by another script alone.
+		if ( panel.s.useFuncArray.len() != 0 || panel.useFunction != ControlPanel_CanUseFunction || panel.s.onPlayerFinishesUsing_func != null )
+			continue
+		linkedPanel = panel
+		break
+	}
+	if ( !IsValid( linkedPanel ) )
+		return
+
+	MegaTurretSite site
+	site.turret = turret
+	site.panel = linkedPanel
+	site.origin = turret.GetOrigin()
+	site.angles = turret.GetAngles()
+	site.targetname = targetname
+	site.aiSettings = turret.GetAISettingsName()
+	site.model = turret.GetModelName()
+	site.maxHealth = turret.GetMaxHealth()
+	if ( turret.Dev_GetAISettingByKeyField( "DrawTargetHealthBar" ) )
+		site.drawTargetHealthBar = true
+	entity weapon = turret.GetActiveWeapon()
+	if ( IsValid( weapon ) )
+	{
+		site.weaponClass = weapon.GetWeaponClassName()
+		site.weaponMods = weapon.GetMods()
+	}
+	// Read the actual AI preset once, not a list of R1/R2 sound aliases or a
+	// lookup every frame. Pitch and yaw commonly share the same loop.
+	foreach ( string key in [ "sound1", "sound2" ] )
+	{
+		string sound = expect string( turret.Dev_GetAISettingByKeyField( key ) )
+		if ( sound != "" && !site.motionSounds.contains( sound ) )
+			site.motionSounds.append( sound )
+	}
+	file.sites.append( site )
+
+	SetControlPanelUseFunc( linkedPanel, MegaTurret_OnPanelUsed )
+	linkedPanel.useFunction = MegaTurret_CanUsePanel
+	linkedPanel.s.onPlayerFinishesUsing_func = MegaTurret_OnPanelUseFinished
+	turret.SetControlPanel( linkedPanel )
+	turret.ai.preventOwnerDamage = true
+	thread MegaTurret_WatchState( site, turret )
+	if ( IsAlive( turret ) )
+		MegaTurret_Release( site )
+	else
+		MegaTurret_OnDeath( turret, null ) // died before the deferred linker ran
+}
+
+function MegaTurret_CanUsePanel( player, panel )
+{
+	expect entity( player )
+	expect entity( panel )
+	if ( !IsAlive( player ) || !player.IsPlayer() || player.IsTitan() || !IsIMCOrMilitiaTeam( player.GetTeam() ) )
+		return false
+	if ( player.IsPhaseShifted() || player.ContextAction_IsActive() )
+		return false
+
+	int index = MegaTurret_FindPanel( panel )
+	if ( index == -1 )
+		return false
+	MegaTurretSite site = file.sites[index]
+	if ( !IsValid( site.turret ) || site.capturing || site.replacing )
+		return false
+	if ( IsAlive( site.turret ) && IsIMCOrMilitiaTeam( site.turret.GetTeam() ) && site.turret.GetTeam() == player.GetTeam() )
+		return false
+	return expect bool( ControlPanel_CanUseFunction( player, panel ) )
+}
+
+void function MegaTurret_UpdatePanel( MegaTurretSite site )
+{
+	entity panel = site.panel
+	if ( !IsValid( panel ) )
+		return
+	if ( !IsValid( site.turret ) )
+	{
+		panel.UnsetUsable()
+		return
+	}
+
+	SetTeam( panel, site.turret.GetTeam() )
+	SetUsePromptForPanel( panel, site.turret )
+	// The data-knife animation owns USABLE_BY_OWNER until its finish hook.
+	if ( IsValid( panel.GetBossPlayer() ) )
+		return
+	if ( site.capturing || site.replacing )
+	{
+		panel.UnsetUsable()
+		return
+	}
+	panel.SetUsable()
+	panel.SetUsableByGroup( MegaTurretUsabilityFunc( site.turret, panel ) )
+}
+
+function MegaTurret_OnPanelUsed( panel, player )
+{
+	expect entity( panel )
+	expect entity( player )
+	int index = MegaTurret_FindPanel( panel )
+	if ( index == -1 || !IsAlive( player ) || !IsIMCOrMilitiaTeam( player.GetTeam() ) )
+		return
+	MegaTurretSite site = file.sites[index]
+	if ( site.capturing || site.replacing )
+		return
+
+	// A completed repair hack need not wait for the automatic repair timer.
+	if ( !IsAlive( site.turret ) )
+		MegaTurret_Replace( site )
+	if ( !IsAlive( site.turret ) || site.turret.GetTeam() == player.GetTeam() )
+		return
+	site.capturing = true
+	site.capturingPlayer = player
+	site.capturingTeam = player.GetTeam()
+	MegaTurret_UpdatePanel( site )
+	thread MegaTurret_Capture( site, site.turret, player, player.GetTeam() )
+}
+
+function MegaTurret_OnPanelUseFinished( panel, player, success )
+{
+	expect entity( panel )
+	int index = MegaTurret_FindPanel( panel )
+	if ( index == -1 )
+		return
+	// Runs after the shared cancellation path restores pre-hack usability,
+	// including release, death, phase shift and an interrupted animation.
+	MegaTurret_UpdatePanel( file.sites[index] )
+	MegaTurret_Refresh( file.sites[index] )
+}
+
+void function MegaTurret_Capture( MegaTurretSite site, entity turret, entity player, int team )
+{
+	turret.EndSignal( "OnDestroy" )
+	if ( !IsValid( site.panel ) )
+		return
+	site.panel.EndSignal( "OnDestroy" )
+	turret.EndSignal( MEGA_TURRET_CANCEL_CAPTURE )
+	turret.ClearBossPlayer()
+	if ( IsIMCOrMilitiaTeam( turret.GetTeam() ) && turret.GetTeam() != team )
+	{
+		MakeTurretInvulnerable( turret )
+		turret.SetValidHealthBarTarget( false )
+		turret.DisableTurret()
+		while ( turret.GetTurretState() != TURRET_INACTIVE )
+		{
+			WaitSignalOnDeadEnt( turret, "OnTurretStateChange" )
+			WaitFrame()
+		}
+	}
+	if ( !IsAlive( turret ) || !IsValid( player ) || !IsAlive( player ) || player.GetTeam() != team )
+	{
+		MegaTurret_Release( site )
+		return
+	}
+
+	site.capturing = false
+	site.capturingPlayer = null
+	site.capturingTeam = TEAM_UNASSIGNED
+	turret.SetHealth( turret.GetMaxHealth() )
+	turret.SetBossPlayer( player )
+	// Clears NoTarget and NoTargetSmartAmmo as well as invulnerability.
+	TurretChangeTeam( turret, team )
+	turret.EnableTurret()
+	MegaTurret_UpdatePanel( site )
+	MegaTurret_Refresh( site )
+}
+
+void function MegaTurret_StopMotionSounds( MegaTurretSite site, entity turret )
+{
+	foreach ( string sound in site.motionSounds )
+		StopSoundOnEntity( turret, sound )
+}
+
+void function MegaTurret_Release( MegaTurretSite site )
+{
+	site.capturing = false
+	site.capturingPlayer = null
+	site.capturingTeam = TEAM_UNASSIGNED
+	entity turret = site.turret
+	if ( IsValid( turret ) )
+	{
+		turret.ClearBossPlayer()
+		MakeTurretInvulnerable( turret )
+		if ( turret.GetTeam() != TEAM_UNASSIGNED )
+			TurretChangeTeam( turret, TEAM_UNASSIGNED )
+		// Disable even an INACTIVE live NPC: the command also clears native
+		// auto-search. Do not interrupt a dead NPC's death animation here.
+		if ( IsAlive( turret ) && turret.GetTurretState() != TURRET_RETIRING )
+			turret.DisableTurret()
+		if ( !IsAlive( turret ) || turret.GetTurretState() == TURRET_INACTIVE )
+			MegaTurret_StopMotionSounds( site, turret )
+	}
+	MegaTurret_UpdatePanel( site )
+	MegaTurret_Refresh( site )
+	if ( IsValid( turret ) )
+		turret.Signal( MEGA_TURRET_CANCEL_CAPTURE )
+}
+
+void function MegaTurret_OnDeath( entity turret, var damageInfo )
+{
+	int index = MegaTurret_FindTurret( turret )
+	if ( index == -1 )
+		return
+	MegaTurretSite site = file.sites[index]
+	if ( site.repairing )
+		return
+	site.repairing = true
+	MegaTurret_Release( site )
+	thread MegaTurret_DeathFX( site, turret )
+	thread MegaTurret_Repair( site, turret )
+}
+
+void function MegaTurret_DeathFX( MegaTurretSite site, entity turret )
+{
+	turret.EndSignal( "OnDestroy" )
+	if ( !IsValid( site.panel ) )
+		return
+	site.panel.EndSignal( "OnDestroy" )
+	if ( turret.LookupAttachment( "glow1" ) <= 0 )
+		return
+	entity sparks = PlayLoopFXOnEntity( MEGA_TURRET_DEATH_FX, turret, "glow1" )
+	OnThreadEnd(
+		function() : ( sparks )
+		{
+			if ( IsValid( sparks ) )
+				sparks.Destroy()
+		}
+	)
+	WaitSignalOnDeadEnt( turret, "OnDestroy" )
+}
+
+void function MegaTurret_Repair( MegaTurretSite site, entity turret )
+{
+	turret.EndSignal( "OnDestroy" )
+	if ( !IsValid( site.panel ) )
+		return
+	site.panel.EndSignal( "OnDestroy" )
+	float repairTime = Time() + MEGA_TURRET_REPAIR_TIME
+	// DeathThink can start another motion loop while finishing retraction,
+	// after the death callback/state output already stopped the old loops.
+	WaitFrame()
+	while ( !turret.IsSequenceFinished() )
+		WaitFrame()
+	WaitFrame()
+	MegaTurret_StopMotionSounds( site, turret )
+
+	// R2 DeathThink finishes the death animation and stops thinking. Unlike
+	// R1 it never advances DEAD to INACTIVE by itself. Keep the wreck in the
+	// native repair/HUD state for its authored 30-second repair period.
+	wait max( 0.0, repairTime - Time() )
+	if ( site.turret != turret || IsAlive( turret ) || "doNotRespawn" in turret.s )
+		return
+
+	turret.DisableTurret()
+	while ( turret.GetTurretState() != TURRET_INACTIVE )
+	{
+		WaitSignalOnDeadEnt( turret, "OnTurretStateChange" )
+		WaitFrame()
+	}
+	MegaTurret_Replace( site )
+}
+
+void function MegaTurret_WatchState( MegaTurretSite site, entity turret )
+{
+	turret.EndSignal( "OnDestroy" )
+	OnThreadEnd(
+		function() : ( site, turret )
+		{
+			if ( site.turret != turret )
+				return
+			// Unregister first: cancelling the hack and releasing the NPC can
+			// synchronously invoke the shared panel/team callbacks.
+			file.sites.removebyvalue( site )
+			if ( IsValid( turret ) )
+			{
+				MegaTurret_Release( site )
+				MegaTurret_StopMotionSounds( site, turret )
+			}
+			entity panel = site.panel
+			if ( !IsValid( panel ) )
+				return
+			entity player = panel.GetBossPlayer()
+			if ( IsValid( player ) )
+				MegaTurret_CancelPlayerHack( site, player )
+
+			// Clear through the shared API, retaining callbacks installed by
+			// other scripts after this lifecycle acquired the panel.
+			local useFuncs = clone panel.s.useFuncArray
+			ClearControlPanelUseFuncs( panel )
+			foreach ( useFunc in useFuncs )
+			{
+				if ( useFunc.useFunc != MegaTurret_OnPanelUsed || useFunc.useEnt != null )
+					SetControlPanelUseFunc( panel, useFunc.useFunc, useFunc.useEnt )
+			}
+			if ( panel.useFunction == MegaTurret_CanUsePanel )
+			{
+				panel.useFunction = ControlPanel_CanUseFunction
+				panel.UnsetUsable()
+			}
+			if ( panel.s.onPlayerFinishesUsing_func == MegaTurret_OnPanelUseFinished )
+				panel.s.onPlayerFinishesUsing_func = null
+		}
+	)
+	if ( !IsValid( site.panel ) )
+		return
+	site.panel.EndSignal( "OnDestroy" )
+	while ( true )
+	{
+		WaitSignalOnDeadEnt( turret, "OnTurretStateChange" )
+		// The native output is fired before m_turretState is written.
+		WaitFrame()
+		if ( site.turret != turret )
+			return
+		int state = turret.GetTurretState()
+		if ( state == TURRET_DEAD || state == TURRET_INACTIVE )
+			MegaTurret_StopMotionSounds( site, turret )
+		MegaTurret_UpdatePanel( site )
+		MegaTurret_Refresh( site )
+	}
+}
+
+void function MegaTurret_Replace( MegaTurretSite site )
+{
+	if ( !IsValid( site.panel ) || !file.sites.contains( site ) || site.replacing || IsAlive( site.turret ) )
+		return
+	site.replacing = true
+	entity oldTurret = site.turret
+	if ( IsValid( oldTurret ) )
+	{
+		MegaTurret_StopMotionSounds( site, oldTurret )
+		SetTargetName( oldTurret, "" )
+	}
+
+	entity turret = CreateNPC( "npc_turret_mega", TEAM_UNASSIGNED, site.origin, site.angles )
+	SetTargetName( turret, site.targetname )
+	SetSpawnOption_AISettings( turret, site.aiSettings )
+	if ( site.weaponClass != "" )
+		SetSpawnOption_Weapon( turret, site.weaponClass )
+	site.turret = turret
+	DispatchSpawn( turret )
+	if ( turret.GetModelName() != site.model )
+		turret.SetModel( site.model )
+	if ( site.weaponClass != "" )
+		turret.GetActiveWeapon().SetMods( site.weaponMods )
+	turret.SetMaxHealth( site.maxHealth )
+	turret.SetHealth( site.maxHealth )
+	turret.ai.preventOwnerDamage = true
+	turret.SetControlPanel( site.panel )
+	thread MegaTurret_WatchState( site, turret )
+	site.replacing = false
+	site.repairing = false
+	MegaTurret_Release( site )
+	// Destroy last: the repair thread has EndSignal on the old entity.
+	if ( IsValid( oldTurret ) )
+		oldTurret.Destroy()
+}
+
+void function MegaTurret_OnTeamChanged( entity turret )
+{
+	int index = MegaTurret_FindTurret( turret )
+	if ( index == -1 )
+		return
+	MegaTurretSite site = file.sites[index]
+	if ( !IsIMCOrMilitiaTeam( turret.GetTeam() ) )
+	{
+		MegaTurret_Release( site )
+		return
+	}
+	if ( !site.capturing && IsAlive( turret ) )
+		MakeTurretVulnerable( turret )
+	MegaTurret_UpdatePanel( site )
+	MegaTurret_Refresh( site )
+}
+
+void function MegaTurret_CancelPlayerHack( MegaTurretSite site, entity player )
+{
+	if ( IsValid( site.panel ) && site.panel.GetBossPlayer() == player )
+		player.Signal( "ScriptAnimStop" )
+}
+
+void function MegaTurret_OnPlayerDisconnected( entity player )
+{
+	foreach ( MegaTurretSite site in file.sites )
+	{
+		MegaTurret_CancelPlayerHack( site, player )
+		if ( site.capturingPlayer == player || ( IsValid( site.turret ) && site.turret.GetBossPlayer() == player ) )
+			MegaTurret_Release( site )
+	}
+}
+
+void function MegaTurret_OnPlayerTeamChanged( entity player )
+{
+	foreach ( MegaTurretSite site in file.sites )
+	{
+		MegaTurret_CancelPlayerHack( site, player )
+		if ( site.capturingPlayer == player && site.capturingTeam != player.GetTeam() )
+		{
+			MegaTurret_Release( site )
+			continue
+		}
+		if ( !IsValid( site.turret ) || site.turret.GetBossPlayer() != player )
+			continue
+		if ( !IsIMCOrMilitiaTeam( player.GetTeam() ) )
+			MegaTurret_Release( site )
+		else
+		{
+			TurretChangeTeam( site.turret, player.GetTeam() )
+			MegaTurret_UpdatePanel( site )
+			MegaTurret_Refresh( site )
+		}
+	}
+}
+
+void function MegaTurret_Refresh( MegaTurretSite site )
+{
+	entity turret = site.turret
+	if ( IsValid( turret ) )
+	{
+		int state = turret.GetTurretState()
+		bool operational = state == TURRET_DEPLOYING || state == TURRET_SEARCHING || state == TURRET_ACTIVE
+		turret.SetValidHealthBarTarget( site.drawTargetHealthBar && operational
+			&& IsAlive( turret ) && !site.repairing && IsIMCOrMilitiaTeam( turret.GetTeam() ) )
+		UpdateTurretClientSideParticleEffects( turret )
+	}
+	if ( !IsValid( site.panel ) )
+		return
+	int panelHandle = site.panel.GetEncodedEHandle()
+	foreach ( entity player in GetPlayerArray() )
+		Remote_CallFunction_Replay( player, "ServerCallback_ControlPanelRefresh", panelHandle )
 }
