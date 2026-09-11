@@ -477,22 +477,6 @@ void function PlayerProgramsControlPanel( entity panel, entity player, string ha
 		}
 	)
 
-	entity viewmodel = player.GetFirstPersonProxy()
-	if ( !HasAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt1_3p" ) )
-		AddAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt1_3p", PlaySound_DataKnife_Hack_Console_Pt1_3p )
-
-	if ( !HasAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt2_3p" ) )
-		AddAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt2_3p", PlaySound_DataKnife_Hack_Console_Pt2_3p )
-
-	if ( !HasAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt3_3p" ) )
-		AddAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt3_3p", PlaySound_DataKnife_Hack_Console_Pt3_3p )
-
-	if ( !HasAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt4_3p" ) )
-		AddAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt4_3p", PlaySound_DataKnife_Hack_Console_Pt4_3p )
-
-	if ( !HasAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt5_3p" ) )
-		AddAnimEvent( viewmodel, "PlaySound_DataKnife_Hack_Console_Pt5_3p", PlaySound_DataKnife_Hack_Console_Pt5_3p )
-
 	if ( e.doRequireUseButtonHeld && !player.UseButtonPressed() )
 		return // it's possible to get here and no longer be holding the use button. If that is the case lets not continue.
 
@@ -727,52 +711,4 @@ function CaptureAllAvailableControlPanels( player )
 		printt( "panel team " + panel.GetTeam() )
 		RunPanelUseFunctions( panel, player )
 	}
-}
-
-// Keep the authored animation callback names (including _3p) for compatibility.
-// Like _pilot_leeching, these proxy callbacks play the original 1P sounds only
-// to the owner. Separate animation events handle the custom 3P sounds.
-void function PlaySound_DataKnife_Hack_Console_Pt1_3p( entity playerFirstPersonProxy )
-{
-	entity player = playerFirstPersonProxy.GetOwner()
-	if ( !IsValid( player ) )
-		return
-
-	EmitSoundOnEntityOnlyToPlayer( player, player, "DataKnife_Hack_Console_Pt1" )
-}
-
-void function PlaySound_DataKnife_Hack_Console_Pt2_3p( entity playerFirstPersonProxy )
-{
-	entity player = playerFirstPersonProxy.GetOwner()
-	if ( !IsValid( player ) )
-		return
-
-	EmitSoundOnEntityOnlyToPlayer( player, player, "DataKnife_Hack_Console_Pt2" )
-}
-
-void function PlaySound_DataKnife_Hack_Console_Pt3_3p( entity playerFirstPersonProxy )
-{
-	entity player = playerFirstPersonProxy.GetOwner()
-	if ( !IsValid( player ) )
-		return
-
-	EmitSoundOnEntityOnlyToPlayer( player, player, "DataKnife_Hack_Console_Pt3" )
-}
-
-void function PlaySound_DataKnife_Hack_Console_Pt4_3p( entity playerFirstPersonProxy )
-{
-	entity player = playerFirstPersonProxy.GetOwner()
-	if ( !IsValid( player ) )
-		return
-
-	EmitSoundOnEntityOnlyToPlayer( player, player, "DataKnife_Hack_Console_Pt4" )
-}
-
-void function PlaySound_DataKnife_Hack_Console_Pt5_3p( entity playerFirstPersonProxy )
-{
-	entity player = playerFirstPersonProxy.GetOwner()
-	if ( !IsValid( player ) )
-		return
-
-	EmitSoundOnEntityOnlyToPlayer( player, player, "DataKnife_Hack_Console_Pt5" )
 }
