@@ -44,5 +44,6 @@ string function MegaTurretPrompt_GetText( entity panel )
 	entity turret = expect entity( panel.s.megaTurretPromptTarget )
 	if ( !IsValid( turret ) )
 		return ""
-	return !IsAlive( turret ) || !IsIMCOrMilitiaTeam( turret.GetTeam() ) ? file.repair : file.capture
+	bool dead = turret.GetTurretState() == TURRET_DEAD || !IsAlive( turret )
+	return dead ? file.repair : file.capture
 }
