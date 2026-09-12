@@ -26,6 +26,30 @@ struct
 
 	array<string> mapsArrayFiltered
 
+	array<string> vanillaMaps = [
+		"mp_forwardbase_kodai",
+		"mp_grave",
+		"mp_homestead",
+		"mp_thaw",
+		"mp_black_water_canal",
+		"mp_eden",
+		"mp_drydock",
+		"mp_crashsite3",
+		"mp_complex3",
+		"mp_angel_city",
+		"mp_colony02",
+		"mp_glitch",
+		"mp_relic02",
+		"mp_wargames",
+		"mp_rise",
+		"mp_lf_stacks",
+		"mp_lf_deck",
+		"mp_lf_meadow",
+		"mp_lf_traffic",
+		"mp_lf_township",
+		"mp_lf_uma"
+	]
+
 	int scrollOffset = 0
 
 	int lastSelectedID
@@ -300,7 +324,13 @@ void function FilterMapsArray()
 	bool useSearch = searchTerm != ""
 	bool hideLocked = bool( GetConVarInt( "filter_map_hide_locked" ) )
 
-	foreach ( string map in GetPrivateMatchMaps() )
+	array<string> maps
+	if ( NSIsVanilla() )
+		maps = file.vanillaMaps
+	else
+		maps = GetPrivateMatchMaps()
+
+	foreach ( string map in maps )
 	{
 		bool containsTerm = Localize( GetMapDisplayName( map ) ).tolower().find( searchTerm.tolower() ) == null ? false : true
 
