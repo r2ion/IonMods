@@ -245,10 +245,13 @@ string function GetSpawnpointGamemodeOverride()
 entity function FindSpawnPoint( entity player, bool isTitan, bool useStartSpawnpoint )
 {
 	int team = player.GetTeam()
+	int spawnTeam = team
+	if ( useStartSpawnpoint && IsIMCOrMilitiaTeam( team ) && IsSwitchSidesBased() && HasSwitchedSides() )
+		spawnTeam = GetOtherTeam( team )
 
 	array<entity> spawnpoints
 	if ( useStartSpawnpoint )
-		spawnpoints = isTitan ? SpawnPoints_GetTitanStart( team ) : SpawnPoints_GetPilotStart( team )
+		spawnpoints = isTitan ? SpawnPoints_GetTitanStart( spawnTeam ) : SpawnPoints_GetPilotStart( spawnTeam )
 	else
 		spawnpoints = isTitan ? SpawnPoints_GetTitan() : SpawnPoints_GetPilot()
 
@@ -266,7 +269,7 @@ entity function FindSpawnPoint( entity player, bool isTitan, bool useStartSpawnp
 		else
 			SpawnPoints_SortTitan()
 
-		spawnpoints = useStartSpawnpoint ? SpawnPoints_GetTitanStart( team ) : SpawnPoints_GetTitan()
+		spawnpoints = useStartSpawnpoint ? SpawnPoints_GetTitanStart( spawnTeam ) : SpawnPoints_GetTitan()
 	}
 	else
 	{
@@ -275,10 +278,10 @@ entity function FindSpawnPoint( entity player, bool isTitan, bool useStartSpawnp
 		else
 			SpawnPoints_SortPilot()
 
-		spawnpoints = useStartSpawnpoint ? SpawnPoints_GetPilotStart( team ) : SpawnPoints_GetPilot()
+		spawnpoints = useStartSpawnpoint ? SpawnPoints_GetPilotStart( spawnTeam ) : SpawnPoints_GetPilot()
 	}
 
-	entity spawnpoint = GetBestSpawnpoint( player, spawnpoints, isTitan )
+	entity spawnpoint = GetBestSpawnpoint( player, spawnpoints, isTitan, spawnTeam )
 
 	spawnpoint.s.lastUsedTime = Time()
 	player.SetLastSpawnPoint( spawnpoint )
@@ -288,7 +291,7 @@ entity function FindSpawnPoint( entity player, bool isTitan, bool useStartSpawnp
 	return spawnpoint
 }
 
-entity function GetBestSpawnpoint( entity player, array<entity> spawnpoints, bool isTitan )
+entity function GetBestSpawnpoint( entity player, array<entity> spawnpoints, bool isTitan, int spawnTeam )
 {
 	array<entity> validSpawns
 
@@ -304,7 +307,7 @@ entity function GetBestSpawnpoint( entity player, array<entity> spawnpoints, boo
 
 	foreach ( entity spawnpoint in spawnpoints )
 	{
-		if ( IsSpawnpointValid( spawnpoint, player.GetTeam() ) )
+		if ( IsSpawnpointValid( spawnpoint, player.GetTeam(), spawnTeam ) )
 			validSpawns.append( spawnpoint )
 	}
 
@@ -337,7 +340,7 @@ entity function GetBestSpawnpoint( entity player, array<entity> spawnpoints, boo
 	] // Return first entry in the array because native have already sorted everything through the ratings, so first one is the best one
 }
 
-bool function IsSpawnpointValid( entity spawnpoint, int team )
+bool function IsSpawnpointValid( entity spawnpoint, int team, int spawnTeam )
 {
 	if ( !IsValidGamemodeSpawnpoint( spawnpoint ) ) // used by script-spawned spawnpoints
 		return false
@@ -352,7 +355,7 @@ bool function IsSpawnpointValid( entity spawnpoint, int team )
 	if ( spawnpoint.s.lastUsedTime == Time() )
 		return false
 
-	if ( !IsSpawnpointValidDrop( spawnpoint, team ) || Time() - spawnpoint.s.lastUsedTime <= 10.0 )
+	if ( !IsSpawnpointValidDrop( spawnpoint, spawnTeam ) || Time() - spawnpoint.s.lastUsedTime <= 10.0 )
 		return false
 
 	if ( SpawnPointInNoSpawnArea( spawnpoint.GetOrigin(), team ) )

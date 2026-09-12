@@ -356,7 +356,7 @@ void function Spawner_Threaded( int team )
 
 			foreach ( entity point in points )
 			{
-				if ( IsSpawnpointValid( point, team ) == false )
+				if ( IsSpawnpointValid( point, team, team ) == false )
 					continue
 
 				validPoints.append( point )
@@ -389,7 +389,7 @@ void function Spawner_Threaded( int team )
 
 			foreach ( entity point in points )
 			{
-				if ( IsSpawnpointValid( point, team ) == false )
+				if ( IsSpawnpointValid( point, team, team ) == false )
 					continue
 
 				validPoints.append( point )
@@ -420,7 +420,7 @@ void function Spawner_Threaded( int team )
 
 			foreach ( entity point in points )
 			{
-				if ( IsSpawnpointValid( point, team ) == false )
+				if ( IsSpawnpointValid( point, team, team ) == false )
 					continue
 
 				validPoints.append( point )
