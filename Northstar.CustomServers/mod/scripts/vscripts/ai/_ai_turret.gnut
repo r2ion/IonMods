@@ -49,11 +49,7 @@ void function AiTurret_Init()
 	AddCallback_EntityChangedTeam( "player", MegaTurret_OnPlayerTeamChanged )
 	AddCallback_OnClientDisconnected( MegaTurret_OnPlayerDisconnected )
 	AddCallback_EntitiesDidLoad( MegaTurret_EntitiesDidLoad )
-	AddCallback_GameStateEnter( eGameState.WinnerDetermined, MegaTurret_SuspendRound )
-	AddCallback_GameStateEnter( eGameState.SwitchingSides, MegaTurret_SuspendRound )
-	AddCallback_GameStateEnter( eGameState.Postmatch, MegaTurret_SuspendRound )
-	AddCallback_GameStateEnter( eGameState.Prematch, MegaTurret_ResetRound )
-	AddCallback_GameStateEnter( eGameState.Playing, MegaTurret_StartRound )
+	AddCallback_OnRoundEndCleanup( MegaTurret_ResetRound )
 }
 
 entity function GetMegaTurretLinkedToPanel( entity panel )
@@ -121,11 +117,6 @@ void function MegaTurret_ResetRound()
 	}
 }
 
-void function MegaTurret_StartRound()
-{
-	if ( file.roundSuspended )
-		MegaTurret_ResetRound()
-}
 
 int function MegaTurret_FindTurret( entity turret )
 {
