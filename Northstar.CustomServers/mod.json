@@ -59,6 +59,13 @@
 	],
 	"Scripts": [
 		{
+			"Path": "client/cl_megaturret_prompts.nut",
+			"RunOn": "CLIENT && MP",
+			"ClientCallback": {
+				"After": "MegaTurretPrompts_Init"
+			}
+		},
+		{
 			"Path": "_custom_codecallbacks.gnut",
 			"RunOn": "SERVER"
 		},

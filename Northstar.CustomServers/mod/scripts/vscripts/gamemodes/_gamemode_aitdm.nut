@@ -11,6 +11,11 @@ const int LEVEL_STALKERS = 380
 const int LEVEL_REAPERS = 500
 const float REAPER_RESPAWN_DEBOUNCE = 0.0
 
+const float AITDM_ASSAULT_STALL_TIME = 10.0
+const float AITDM_ASSAULT_IDLE_TIME = 20.0
+const float AITDM_ASSAULT_COMBAT_GRACE = 6.0
+const float AITDM_ASSAULT_RETRY_TIME = 3.0
+
 // add settings
 global function AITdm_SetSquadsPerTeam
 global function AITdm_SetReapersPerTeam
@@ -22,10 +27,23 @@ struct AITdmAssaultOrder
 {
 	entity npc
 	entity bossPlayer
+	int team
+	string squadName
 	vector goal
-	bool assigned = false
-	bool failed = false
+	vector origin
+	vector progressOrigin
+	float lastProgressTime
+	float lastEngagedTime
+	int lastHealth
+	int goalRevision = -1
 	float retryTime = 0.0
+	float arrivalTolerance = 0.0
+	bool arrivalOverridden = false
+	bool assigned = false
+	bool arrived = false
+	bool failed = false
+	bool paused = false
+	bool released = false
 }
 
 struct
@@ -36,6 +54,7 @@ struct
 	array<bool> reapers = [ false, false ]
 	table<int, float> reaperRespawnTimes = {}
 	table<int, int> nextFrontlineSquad = { [TEAM_IMC] = 0, [TEAM_MILITIA] = 0 }
+	array<AITdmAssaultOrder> assaultOrders
 
 	// default settings
 	int squadsPerTeam = SQUADS_PER_TEAM
@@ -541,21 +560,29 @@ void function SquadHandler( array<entity> guys )
 		foreach ( player in players )
 			guy.Minimap_AlwaysShow( 0, player )
 
+		if ( IsValid( guy.GetBossPlayer() ) || IsValid( guy.GetFollowTarget() ) )
+			continue
+
 		AITdmAssaultOrder order
 		order.npc = guy
 		order.bossPlayer = guy.GetBossPlayer()
+		order.team = team
+		order.squadName = squadName
+		order.origin = guy.GetOrigin()
+		order.progressOrigin = order.origin
+		order.lastProgressTime = Time()
+		order.lastEngagedTime = Time() - AITDM_ASSAULT_COMBAT_GRACE
+		order.lastHealth = guy.GetHealth()
 		orders.append( order )
-		thread AITdm_WatchAssaultPathFailures( order )
+		file.assaultOrders.append( order )
+		thread AITdm_WatchAssault( order )
 	}
 
 	OnThreadEnd(
 		function() : ( orders )
 		{
 			foreach ( order in orders )
-			{
-				if ( IsValid( order.npc ) )
-					order.npc.Signal( "AITdm_StopAssault" )
-			}
+				AITdm_ReleaseAssaultOrder( order )
 		}
 	)
 
@@ -563,23 +590,32 @@ void function SquadHandler( array<entity> guys )
 	entity lastGoalEnt = null
 	vector lastAnchor = < 0, 0, 0 >
 	float nextEnemyGoalTime = 0.0
+	float nextRepositionTime = 0.0
+	int goalRevision = 0
 	array<vector> positions
 
 	while ( true )
 	{
 		for ( int i = orders.len() - 1; i >= 0; i-- )
 		{
-			entity guy = orders[ i ].npc
-			if ( IsAlive( guy ) && guy.GetTeam() == team &&
-				guy.GetBossPlayer() == orders[ i ].bossPlayer && expect string( guy.kv.squadname ) == squadName )
+			if ( AITdm_OwnsAssaultOrder( orders[ i ] ) )
 				continue
 
-			if ( IsValid( guy ) )
-				guy.Signal( "AITdm_StopAssault" )
+			AITdm_ReleaseAssaultOrder( orders[ i ] )
 			orders.remove( i )
 		}
 		if ( orders.len() == 0 )
 			return
+
+		float now = Time()
+		bool squadIdle = true
+		foreach ( order in orders )
+		{
+			AITdm_UpdateAssaultActivity( order, now )
+			if ( order.paused || !order.arrived || now - order.lastEngagedTime < AITDM_ASSAULT_IDLE_TIME ||
+				now - order.lastProgressTime < AITDM_ASSAULT_IDLE_TIME )
+				squadIdle = false
+		}
 
 		var frontline = GetCurrentFrontline()
 		entity goalEnt = null
@@ -591,7 +627,7 @@ void function SquadHandler( array<entity> guys )
 			anchor = goalEnt.GetOrigin()
 			changed = frontline != lastFrontline || goalEnt != lastGoalEnt || anchor != lastAnchor
 		}
-		else if ( Time() >= nextEnemyGoalTime )
+		else if ( now >= nextEnemyGoalTime )
 		{
 			array<entity> enemies = GetNPCArrayOfEnemies( team )
 			ArrayRemoveDead( enemies )
@@ -601,7 +637,7 @@ void function SquadHandler( array<entity> guys )
 				continue
 			}
 			anchor = enemies[ RandomInt( enemies.len() ) ].GetOrigin()
-			nextEnemyGoalTime = Time() + RandomFloatRange( 5.0, 15.0 )
+			nextEnemyGoalTime = now + RandomFloatRange( 5.0, 15.0 )
 			changed = true
 		}
 
@@ -611,12 +647,7 @@ void function SquadHandler( array<entity> guys )
 			lastGoalEnt = goalEnt
 			lastAnchor = anchor
 			positions.clear()
-			foreach ( order in orders )
-			{
-				order.assigned = false
-				order.failed = false
-				order.retryTime = 0.0
-			}
+			goalRevision++
 		}
 		if ( positions.len() == 0 )
 			positions = AITdm_GetAssaultPositions( anchor, orders[ 0 ].npc )
@@ -625,26 +656,120 @@ void function SquadHandler( array<entity> guys )
 		if ( IsValid( goalEnt ) && goalEnt.HasKey( "script_goal_radius" ) )
 			radius = float( goalEnt.kv.script_goal_radius )
 
+		bool reposition = squadIdle && frontline != null && !changed && now >= nextRepositionTime
+		vector preferred = anchor
+		if ( reposition )
+		{
+			preferred += expect vector( GetTeamCombatDir( frontline, team ) ) * 384.0
+			nextRepositionTime = now + AITDM_ASSAULT_IDLE_TIME
+		}
+
 		foreach ( order in orders )
 		{
-			if ( order.assigned && !order.failed )
-				continue
-			if ( Time() < order.retryTime )
+			if ( order.paused || now - order.lastEngagedTime < AITDM_ASSAULT_COMBAT_GRACE || now < order.retryTime )
 				continue
 
-			vector ornull goal = AITdm_SelectAssaultPosition( order, positions, orders )
-			order.retryTime = Time() + 3.0
+			bool refresh = !order.assigned || order.goalRevision != goalRevision
+			bool stalled = order.assigned && !order.arrived && now - order.lastProgressTime >= AITDM_ASSAULT_STALL_TIME
+			if ( !refresh && !order.failed && !stalled && !reposition )
+				continue
+
+			bool improve = reposition && !refresh && !order.failed && !stalled
+			bool avoidPrevious = !refresh && ( order.failed || stalled || improve )
+			vector ornull goal = AITdm_SelectAssaultPosition( order, positions, preferred, avoidPrevious, improve )
+			order.retryTime = now + ( improve ? AITDM_ASSAULT_IDLE_TIME : stalled ? AITDM_ASSAULT_STALL_TIME : AITDM_ASSAULT_RETRY_TIME )
 			if ( goal == null )
 				continue
 
+			AITdm_RestoreAssaultArrival( order )
+			float tolerance = order.npc.AssaultGetArrivalTolerance()
+			if ( tolerance <= 0.0 || tolerance > 64.0 )
+			{
+				order.arrivalTolerance = tolerance
+				order.arrivalOverridden = true
+				order.npc.AssaultSetArrivalTolerance( 64.0 )
+			}
+
 			order.goal = expect vector( goal )
+			order.goalRevision = goalRevision
 			order.assigned = true
+			order.arrived = false
 			order.failed = false
+			order.progressOrigin = order.origin
+			order.lastProgressTime = now
 			order.npc.AssaultPoint( order.goal )
 			order.npc.AssaultSetGoalRadius( max( radius, order.npc.GetMinGoalRadius() ) )
 		}
 
 		wait 1.0
+	}
+}
+
+bool function AITdm_OwnsAssaultOrder( AITdmAssaultOrder order )
+{
+	entity guy = order.npc
+	return !order.released && IsAlive( guy ) && guy.GetTeam() == order.team &&
+		guy.GetBossPlayer() == order.bossPlayer && !IsValid( guy.GetFollowTarget() ) &&
+		expect string( guy.kv.squadname ) == order.squadName
+}
+
+void function AITdm_RestoreAssaultArrival( AITdmAssaultOrder order )
+{
+	if ( !order.arrivalOverridden )
+		return
+	order.arrivalOverridden = false
+	if ( IsAlive( order.npc ) && order.npc.AssaultGetArrivalTolerance() == 64.0 )
+		order.npc.AssaultSetArrivalTolerance( order.arrivalTolerance )
+}
+
+void function AITdm_ReleaseAssaultOrder( AITdmAssaultOrder order )
+{
+	AITdm_RestoreAssaultArrival( order )
+	order.assigned = false
+	order.released = true
+	if ( IsValid( order.npc ) )
+		order.npc.Signal( "AITdm_StopAssault" )
+	for ( int i = file.assaultOrders.len() - 1; i >= 0; i-- )
+	{
+		if ( file.assaultOrders[ i ] == order )
+		{
+			file.assaultOrders.remove( i )
+			break
+		}
+	}
+}
+
+void function AITdm_UpdateAssaultActivity( AITdmAssaultOrder order, float now )
+{
+	entity guy = order.npc
+	order.origin = guy.GetOrigin()
+	if ( DistanceSqr( order.origin, order.progressOrigin ) >= 32 * 32 )
+	{
+		order.progressOrigin = order.origin
+		order.lastProgressTime = now
+		order.failed = false
+	}
+
+	int health = guy.GetHealth()
+	entity enemy = guy.GetEnemy()
+	float lastSeen = guy.GetEnemyLastTimeSeen()
+	if ( lastSeen > 0.0 )
+		order.lastEngagedTime = max( order.lastEngagedTime, lastSeen )
+	if ( health < order.lastHealth || ( IsAlive( enemy ) && guy.CanSee( enemy ) ) )
+		order.lastEngagedTime = now
+	order.lastHealth = health
+	if ( now - order.lastEngagedTime < AITDM_ASSAULT_COMBAT_GRACE )
+		AITdm_RestoreAssaultArrival( order )
+
+	order.paused = guy.GetParent() != null || !guy.IsInterruptable() || guy.Anim_IsActive()
+	if ( order.paused )
+	{
+		AITdm_RestoreAssaultArrival( order )
+		order.assigned = false
+		order.arrived = false
+		order.failed = false
+		order.lastProgressTime = now
+		order.retryTime = now + AITDM_ASSAULT_RETRY_TIME
 	}
 }
 
@@ -656,7 +781,7 @@ array<vector> function AITdm_GetAssaultPositions( vector anchor, entity guy )
 		return positions
 
 	vector center = expect vector( clamped )
-	array<vector> neighbors = NavMesh_GetNeighborPositions( center, HULL_HUMAN, 16 )
+	array<vector> neighbors = NavMesh_GetNeighborPositions( center, HULL_HUMAN, 32 )
 	neighbors.insert( 0, center )
 	foreach ( point in neighbors )
 	{
@@ -664,58 +789,94 @@ array<vector> function AITdm_GetAssaultPositions( vector anchor, entity guy )
 			continue
 		positions.append( point )
 	}
-	return ArrayClosestVector( positions, anchor )
+	return positions
 }
 
-vector ornull function AITdm_SelectAssaultPosition( AITdmAssaultOrder order, array<vector> positions, array<AITdmAssaultOrder> orders )
+vector ornull function AITdm_SelectAssaultPosition( AITdmAssaultOrder order, array<vector> positions, vector preferred, bool avoidPrevious, bool improve )
 {
-	vector ornull sharedPosition = null
+	vector ornull bestPosition = null
 	vector ornull retryPosition = null
+	float bestScore = improve ? AITdm_AssaultPositionScore( order, order.origin, preferred ) - 64 * 64 : 1.0e30
 	foreach ( point in positions )
 	{
-		if ( order.failed && Distance2DSqr( order.goal, point ) < 64 * 64 )
+		if ( avoidPrevious && Distance2DSqr( order.goal, point ) < 64 * 64 )
 		{
-			if ( retryPosition == null && NavMesh_IsPosReachableForAI( order.npc, point ) )
+			if ( !improve && retryPosition == null && NavMesh_IsPosReachableForAI( order.npc, point ) )
 				retryPosition = point
 			continue
 		}
-
-		bool occupied = false
-		foreach ( other in orders )
-		{
-			if ( other != order && other.assigned && Distance2DSqr( other.goal, point ) < 64 * 64 )
-			{
-				occupied = true
-				break
-			}
-		}
-		if ( occupied && sharedPosition != null )
+		if ( improve && Distance2DSqr( order.origin, point ) < 128 * 128 )
 			continue
-		if ( !NavMesh_IsPosReachableForAI( order.npc, point ) )
-			continue
-		if ( !occupied )
-			return point
 
-		sharedPosition = point
+		float score = AITdm_AssaultPositionScore( order, point, preferred )
+		if ( score >= bestScore || !NavMesh_IsPosReachableForAI( order.npc, point ) )
+			continue
+		bestScore = score
+		bestPosition = point
 	}
-	return sharedPosition != null ? sharedPosition : retryPosition
+	return bestPosition != null ? bestPosition : retryPosition
 }
 
-void function AITdm_WatchAssaultPathFailures( AITdmAssaultOrder order )
+float function AITdm_AssaultPositionScore( AITdmAssaultOrder order, vector point, vector preferred )
+{
+	float score = Distance2DSqr( point, preferred )
+	foreach ( other in file.assaultOrders )
+	{
+		if ( other == order || other.team != order.team || other.released || !IsAlive( other.npc ) )
+			continue
+
+		float separation = 1.0e30
+		if ( fabs( point.z - other.origin.z ) <= 128 )
+			separation = Distance2DSqr( point, other.origin )
+		if ( other.assigned && fabs( point.z - other.goal.z ) <= 128 )
+			separation = min( separation, Distance2DSqr( point, other.goal ) )
+		float spacing = other.squadName == order.squadName ? 64.0 : 192.0
+		if ( separation < spacing * spacing )
+			score += ( spacing * spacing - separation ) * 16.0
+	}
+	return score
+}
+
+void function AITdm_WatchAssault( AITdmAssaultOrder order )
 {
 	order.npc.EndSignal( "OnDeath" )
 	order.npc.EndSignal( "OnDestroy" )
-	order.npc.EndSignal( "OnLeeched" )
 	order.npc.EndSignal( "AITdm_StopAssault" )
 	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
 
 	while ( true )
 	{
-		order.npc.WaitSignal( "OnFailedToPath" )
-		if ( !order.failed )
+		var result = order.npc.WaitSignal( "OnFailedToPath", "OnFinishedAssault", "OnLeeched" )
+		if ( result.signal == "OnLeeched" )
 		{
+			AITdm_RestoreAssaultArrival( order )
+			order.released = true
+			order.assigned = false
+			return
+		}
+		if ( !AITdm_OwnsAssaultOrder( order ) )
+			return
+		if ( !order.assigned )
+			continue
+		if ( result.signal == "OnFailedToPath" )
+		{
+			if ( order.arrived )
+				continue
+			if ( !order.failed )
+				order.retryTime = Time() + AITDM_ASSAULT_RETRY_TIME
 			order.failed = true
-			order.retryTime = Time() + 3.0
+			order.arrived = false
+			order.progressOrigin = order.npc.GetOrigin()
+			AITdm_RestoreAssaultArrival( order )
+		}
+		else
+		{
+			vector origin = order.npc.GetOrigin()
+			if ( Distance2DSqr( origin, order.goal ) > 64 * 64 || fabs( origin.z - order.goal.z ) > 128 )
+				continue
+			order.arrived = true
+			order.failed = false
+			AITdm_RestoreAssaultArrival( order )
 		}
 	}
 }
@@ -765,73 +926,5 @@ void function ReaperHandler( entity reaper )
 		}
 		wait RandomFloatRange( 10.0, 20.0 )
 	}
-	// thread AITdm_CleanupBoredNPCThread( reaper )
 }
 
-// Currently unused as this is handled by SquadHandler
-// May need to use this if my implementation falls apart
-void function AITdm_CleanupBoredNPCThread( entity guy )
-{
-	// track all ai that we spawn, ensure that they're never "bored" (i.e. stuck by themselves doing fuckall with nobody to see them) for too long
-	// if they are, kill them so we can free up slots for more ai to spawn
-	// we shouldn't ever kill ai if players would notice them die
-
-	// NOTE: this partially covers up for the fact that we script ai alot less than vanilla probably does
-	// vanilla probably messes more with making ai assaultpoint to fights when inactive and stuff like that, we don't do this so much
-
-	guy.EndSignal( "OnDestroy" )
-	wait 15.0 // cover spawning time from dropship/pod + before we start cleaning up
-
-	int cleanupFailures = 0 // when this hits 2, cleanup the npc
-	while ( cleanupFailures < 2 )
-	{
-		wait 10.0
-
-		if ( guy.GetParent() != null )
-			continue // never cleanup while spawning
-
-		array<entity> otherGuys = GetPlayerArray()
-		otherGuys.extend( GetNPCArrayOfTeam( GetOtherTeam( guy.GetTeam() ) ) )
-
-		bool failedChecks = false
-
-		foreach ( entity otherGuy in otherGuys )
-		{
-			// skip dead people
-			if ( !IsAlive( otherGuy ) )
-				continue
-
-			failedChecks = false
-
-			// don't kill if too close to anything
-			if ( Distance( otherGuy.GetOrigin(), guy.GetOrigin() ) < 2000.0 )
-				break
-
-			// don't kill if ai or players can see them
-			if ( otherGuy.IsPlayer() )
-			{
-				if ( PlayerCanSee( otherGuy, guy, true, 135 ) )
-					break
-			}
-			else
-			{
-				if ( otherGuy.CanSee( guy ) )
-					break
-			}
-
-			// don't kill if they can see any ai
-			if ( guy.CanSee( otherGuy ) )
-				break
-
-			failedChecks = true
-		}
-
-		if ( failedChecks )
-			cleanupFailures++
-		else
-			cleanupFailures--
-	}
-
-	print( "cleaning up bored npc: " + guy + " from team " + guy.GetTeam() )
-	guy.Destroy()
-}

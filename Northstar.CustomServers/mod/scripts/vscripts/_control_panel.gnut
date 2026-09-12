@@ -328,6 +328,10 @@ function ClearControlPanelUseFuncs( panel )
 void function PlayerProgramsControlPanel( entity panel, entity player, string hackFlag )
 {
 	Assert( IsAlive( player ) )
+	#if MP
+		if ( IsValid( GetMegaTurretLinkedToPanel( panel ) ) )
+			panel.EndSignal( "MegaTurretCancelCapture" )
+	#endif
 
 	// need to wait here so that the panel script can start waiting for the PanelReprogrammed signal.
 	WaitFrame()

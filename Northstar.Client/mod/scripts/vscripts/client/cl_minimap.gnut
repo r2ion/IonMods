@@ -137,6 +137,9 @@ void function ClMinimap_Init()
 	RegisterDefaultMinimapPackage( "npc_drone", $"ui/minimap_object.rpak", MinimapPackage_NPCHumanSizedInit )
 	RegisterDefaultMinimapPackage( "npc_dropship", $"ui/minimap_object.rpak", MinimapPackage_NPCDropShipInit )
 	RegisterDefaultMinimapPackage( "npc_turret_sentry", $"ui/minimap_object.rpak", MinimapPackage_NPCSentryTurretInit )
+#if MP
+	RegisterDefaultMinimapPackage( "npc_turret_mega", $"ui/minimap_object.rpak", MinimapPackage_NPCMegaTurretInit )
+#endif
 	RegisterDefaultMinimapPackage( "prop_script", $"", MinimapPackage_DummyInit )
 	RegisterDefaultMinimapPackage( "item_titan_battery", $"ui/minimap_fw_battery.rpak", MinimapPackage_BatteryInit )
 	RegisterDefaultMinimapPackage( "item_flag", $"ui/minimap_object.rpak", MinimapPackage_FlagInit )
@@ -397,6 +400,21 @@ void function AddMinimapObject( entity ent ) // TODO: If we want radar jammer bo
 			WaitSignal( ent, "SettingsChanged", "OnDeath" )
 		}
 	}
+	else if ( className == "npc_turret_mega" )
+	{
+		asset lastIcon = $""
+		while ( true )
+		{
+			asset icon = Minimap_MegaTurretIcon( ent )
+			if ( icon != lastIcon )
+			{
+				RuiSetImage( rui, "defaultIcon", icon )
+				RuiSetImage( rui, "clampedDefaultIcon", icon )
+				lastIcon = icon
+			}
+			WaitFrame()
+		}
+	}
 	else
 	{
 		ent.WaitSignal( "OnDestroy" )
@@ -612,6 +630,30 @@ void function MinimapPackage_NPCSentryTurretInit( entity ent, var rui )
 {
 	RuiSetImage( rui, "defaultIcon", $"" )
 	RuiSetImage( rui, "clampedDefaultIcon", $"" )
+}
+
+asset function Minimap_MegaTurretIcon( entity ent )
+{
+	entity player = GetLocalViewPlayer()
+	int team = ent.GetTeam()
+	if ( !IsAlive( ent ) || team == TEAM_UNASSIGNED || !IsValid( player ) )
+		return $"bsp_regen/nexus/minimap/threathud_turret_neutral"
+
+	if ( team == player.GetTeam() || ent.GetBossPlayer() == player )
+		return $"bsp_regen/nexus/minimap/threathud_turret_friendly"
+
+	return $"bsp_regen/nexus/minimap/threathud_turret_enemy"
+}
+
+void function MinimapPackage_NPCMegaTurretInit( entity ent, var rui )
+{
+	RuiSetBool( rui, "useTeamColor", false )
+	RuiSetFloat3( rui, "iconColor", <1.0, 1.0, 1.0> )
+	RuiSetBool( rui, "overrideTitanIcon", true )
+	RuiSetBool( rui, "alwaysShowOnMinimap", true )
+	asset icon = Minimap_MegaTurretIcon( ent )
+	RuiSetImage( rui, "defaultIcon", icon )
+	RuiSetImage( rui, "clampedDefaultIcon", icon )
 }
 
 void function MinimapPackage_BossTitanInit( entity ent, var rui )
