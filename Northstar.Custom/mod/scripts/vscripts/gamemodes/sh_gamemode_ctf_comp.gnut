@@ -55,7 +55,7 @@ void function CreateGamemodeCTFComp()
 	#endif
 }
 
-void function RateSpawnpoints_CTFComp( int checkClass, array<entity> spawnpoints, array<float> outRatings )
+void function RateSpawnpoints_CTFComp( int checkClass, array<entity> spawnpoints, int team, entity player )
 {
 	vector allyFlagSpot
 	vector enemyFlagSpot
