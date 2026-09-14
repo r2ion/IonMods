@@ -1,5 +1,7 @@
 global function ShGamemodeCTFComp_Init
-global function RateSpawnpoints_CTFComp
+#if SERVER
+	global function RateSpawnpoints_CTFComp
+#endif
 global const string GAMEMODE_CTF_COMP = "ctf_comp"
 
 void function ShGamemodeCTFComp_Init()
@@ -54,46 +56,46 @@ void function CreateGamemodeCTFComp()
 		GameMode_AddSharedInit( GAMEMODE_CTF_COMP, CaptureTheFlagShared_Init )
 	#endif
 }
-
-void function RateSpawnpoints_CTFComp( int checkClass, array<entity> spawnpoints, int team, entity player )
-{
-	vector allyFlagSpot
-	vector enemyFlagSpot
-	vector flagsMedianPosition
-
-	foreach ( entity spawn in GetEntArrayByClass_Expensive( "info_spawnpoint_flag" ) )
+#if SERVER
+	void function RateSpawnpoints_CTFComp( int checkClass, array<entity> spawnpoints, int team, entity player )
 	{
-		if ( spawn.GetTeam() == team )
-			allyFlagSpot = spawn.GetOrigin()
-		else
-			enemyFlagSpot = spawn.GetOrigin()
+		vector allyFlagSpot
+		vector enemyFlagSpot
+		vector flagsMedianPosition
+
+		foreach ( entity spawn in GetEntArrayByClass_Expensive( "info_spawnpoint_flag" ) )
+		{
+			if ( spawn.GetTeam() == team )
+				allyFlagSpot = spawn.GetOrigin()
+			else
+				enemyFlagSpot = spawn.GetOrigin()
+		}
+
+		flagsMedianPosition = ( allyFlagSpot + enemyFlagSpot ) * 0.5
+
+		foreach ( entity spawn in spawnpoints )
+		{
+			entity teamFlag = GetFlagForTeam( team )
+
+			float allyFlagDistance = Distance2D( spawn.GetOrigin(), allyFlagSpot )
+			float enemyFlagDistance = Distance2D( spawn.GetOrigin(), enemyFlagSpot )
+			float friendliesScore = spawn.NearbyAllyScore( team, "ai" ) + spawn.NearbyAllyScore( team, "titan" ) + spawn.NearbyAllyScore( team, "pilot" )
+			float enemiesRating = spawn.NearbyEnemyScore( team, "ai" ) + spawn.NearbyEnemyScore( team, "titan" ) + spawn.NearbyEnemyScore( team, "pilot" )
+			float rating = 1.0 - ( Distance2D( spawn.GetOrigin(), allyFlagSpot ) / MAP_EXTENTS )
+
+			rating += friendliesScore * 0.5
+			rating += enemiesRating
+
+			if ( spawn == player.p.lastSpawnPoint )
+				rating += GetConVarFloat( "spawnpoint_last_spawn_rating" )
+
+			if ( allyFlagDistance > enemyFlagDistance ) // Prevent ratings from crossing past midpoint between flags
+				rating = 0.0
+
+			spawn.CalculateRating( checkClass, team, rating, rating * 0.25 )
+		}
 	}
-
-	flagsMedianPosition = ( allyFlagSpot + enemyFlagSpot ) * 0.5
-
-	foreach ( entity spawn in spawnpoints )
-	{
-		entity teamFlag = GetFlagForTeam( team )
-
-		float allyFlagDistance = Distance2D( spawn.GetOrigin(), allyFlagSpot )
-		float enemyFlagDistance = Distance2D( spawn.GetOrigin(), enemyFlagSpot )
-		float friendliesScore = spawn.NearbyAllyScore( team, "ai" ) + spawn.NearbyAllyScore( team, "titan" ) + spawn.NearbyAllyScore( team, "pilot" )
-		float enemiesRating = spawn.NearbyEnemyScore( team, "ai" ) + spawn.NearbyEnemyScore( team, "titan" ) + spawn.NearbyEnemyScore( team, "pilot" )
-		float rating = 1.0 - ( Distance2D( spawn.GetOrigin(), allyFlagSpot ) / MAP_EXTENTS )
-
-		rating += friendliesScore * 0.5
-		rating += enemiesRating
-
-		if ( spawn == player.p.lastSpawnPoint )
-			rating += GetConVarFloat( "spawnpoint_last_spawn_rating" )
-
-		if ( allyFlagDistance > enemyFlagDistance ) // Prevent ratings from crossing past midpoint between flags
-			rating = 0.0
-
-		spawn.CalculateRating( checkClass, team, rating, rating * 0.25 )
-	}
-}
-
+#endif
 void function CTFCompRegisterNetworkVars()
 {
 	if ( GAMETYPE != GAMEMODE_CTF_COMP )
