@@ -227,12 +227,6 @@
       "helpText": "Checks if the game is currently in vanilla compat mode",
       "returnTypeString": "bool",
       "argTypes": ""
-    },
-    {
-      "name": "NSShouldClearPlaylistOverrides",
-      "helpText": "Returns whether the listen server should clear playlist overrides.",
-      "returnTypeString": "bool",
-      "argTypes": ""
     }
   ],
   "CLIENT": [
@@ -800,12 +794,6 @@
       "name": "NSGetFriendSubscriptionMap",
       "helpText": "Gets a map of friend subscriptions",
       "returnTypeString": "table< string, string >",
-      "argTypes": ""
-    },
-    {
-      "name": "NSMarkClearPlaylistOverrides",
-      "helpText": "Marks that the listen server should clear playlist overrides.",
-      "returnTypeString": "void",
       "argTypes": ""
     },
     {

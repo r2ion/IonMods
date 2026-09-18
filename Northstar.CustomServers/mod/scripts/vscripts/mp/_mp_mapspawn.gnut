@@ -11,8 +11,6 @@ void function SPMP_MapSpawn_Init()
 {
 	printl( "Code Script: _mp_mapspawn" )
 
-	if ( NSShouldClearPlaylistOverrides() && IsLobby() )
-		ClearPlaylistVarOverrides()
 
 	svGlobal.npcsSpawnedThisFrame_scriptManagedArray[ TEAM_IMC ] <- CreateScriptManagedEntArray()
 	svGlobal.npcsSpawnedThisFrame_scriptManagedArray[ TEAM_MILITIA ] <- CreateScriptManagedEntArray()

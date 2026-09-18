@@ -608,8 +608,6 @@ void function OnLobbyMenu_Open()
 
 	DoNSButtonState()
 
-	NSMarkClearPlaylistOverrides()
-
 	thread UpdateCachedNewItems()
 	if ( file.putPlayerInMatchmakingAfterDelay )
 	{

@@ -156,7 +156,6 @@ void function OnShowMainMenuPanel()
 	EndSignal( uiGlobal.signalDummy, "EndShowMainMenuPanel" )
 
 	UpdateCustomMainMenuPromos()
-	NSMarkClearPlaylistOverrides()
 
 	foreach ( button in file.menuButtons )
 	{
