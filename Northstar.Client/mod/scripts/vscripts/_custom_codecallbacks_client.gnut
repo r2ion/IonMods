@@ -61,9 +61,6 @@ string function StripAnsiColorCodes( string text )
 
 void function OnReceivedMessage( ClClient_MessageStruct localMessage )
 {
-	if ( IsWatchingReplay() && localMessage.player == null )
-		return
-
 	if ( localMessage.player != null )
 	{
 		foreach ( callbackFunc in NsCustomCallbacksClient.OnReceivedSayTextMessageCallbacks )
