@@ -285,46 +285,44 @@ playlists
 			vars
 			{
 
-///if NORTHSTAR
 				// These need to be defined somewhere for private match settings defaults to work, though I don't like this
-				classic_rodeo 0
-				riff_instagib 0
-				fp_embark_enabled 0
-				riff_player_bleedout 0
-				player_bleedout_forceHolster 0
-				player_bleedout_forceDeathOnTeamBleedout 0
-				player_bleedout_bleedoutTime 30.0
-				player_bleedout_firstAidTime 3.0
-				player_bleedout_firstAidTimeSelf -1.0
-				player_bleedout_firstAidHealPercent 1.0
-				player_bleedout_aiBleedingPlayerMissChance 0.0
-				custom_air_accel_pilot 500
-				oob_timer_enabled 1
-				no_pilot_collision 0
-				promode_enable 0
-				fw_harvester_health 87500
-				fw_harvester_shield 17500
-				fw_harvester_regen_delay 12.0
-				fw_harvester_regen_time 10.0
-				fw_turret_health 12500
-				fw_turret_shield 4000
-				fw_turret_fixed_health 0.33
-				fw_turret_fixed_shield 1.0
-				fw_turret_hacked_health 0.5
-				fw_turret_hacked_shield 0.5
-				gg_kill_reward 1.0
-				gg_assist_reward 0.0
-				gg_execution_reward 1.0
-				hideandseek_balance_teams 1
-				hideandseek_hiding_time 60.0
-				sns_softball_enabled 0
-				sns_reset_pulse_blade_cooldown_on_pulse_blade_kill 1
-				sns_softball_kill_value 10
-				sns_wme_kill_value 10
-				sns_offhand_kill_value 10
-				sns_reset_kill_value 5
-				sns_melee_kill_value 5
-///endif
+				classic_rodeo 0 [$NORTHSTAR]
+				riff_instagib 0 [$NORTHSTAR]
+				fp_embark_enabled 0 [$NORTHSTAR]
+				riff_player_bleedout 0 [$NORTHSTAR]
+				player_bleedout_forceHolster 0 [$NORTHSTAR]
+				player_bleedout_forceDeathOnTeamBleedout 0 [$NORTHSTAR]
+				player_bleedout_bleedoutTime 30.0 [$NORTHSTAR]
+				player_bleedout_firstAidTime 3.0 [$NORTHSTAR]
+				player_bleedout_firstAidTimeSelf -1.0 [$NORTHSTAR]
+				player_bleedout_firstAidHealPercent 1.0 [$NORTHSTAR]
+				player_bleedout_aiBleedingPlayerMissChance 0.0 [$NORTHSTAR]
+				custom_air_accel_pilot 500 [$NORTHSTAR]
+				oob_timer_enabled 1 [$NORTHSTAR]
+				no_pilot_collision 0 [$NORTHSTAR]
+				promode_enable 0 [$NORTHSTAR]
+				fw_harvester_health 87500 [$NORTHSTAR]
+				fw_harvester_shield 17500 [$NORTHSTAR]
+				fw_harvester_regen_delay 12.0 [$NORTHSTAR]
+				fw_harvester_regen_time 10.0 [$NORTHSTAR]
+				fw_turret_health 12500 [$NORTHSTAR]
+				fw_turret_shield 4000 [$NORTHSTAR]
+				fw_turret_fixed_health 0.33 [$NORTHSTAR]
+				fw_turret_fixed_shield 1.0 [$NORTHSTAR]
+				fw_turret_hacked_health 0.5 [$NORTHSTAR]
+				fw_turret_hacked_shield 0.5 [$NORTHSTAR]
+				gg_kill_reward 1.0 [$NORTHSTAR]
+				gg_assist_reward 0.0 [$NORTHSTAR]
+				gg_execution_reward 1.0 [$NORTHSTAR]
+				hideandseek_balance_teams 1 [$NORTHSTAR]
+				hideandseek_hiding_time 60.0 [$NORTHSTAR]
+				sns_softball_enabled 0 [$NORTHSTAR]
+				sns_reset_pulse_blade_cooldown_on_pulse_blade_kill 1 [$NORTHSTAR]
+				sns_softball_kill_value 10 [$NORTHSTAR]
+				sns_wme_kill_value 10 [$NORTHSTAR]
+				sns_offhand_kill_value 10 [$NORTHSTAR]
+				sns_reset_kill_value 5 [$NORTHSTAR]
+				sns_melee_kill_value 5 [$NORTHSTAR]
 			}
 		}
 		gg

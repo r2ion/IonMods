@@ -8,21 +8,19 @@ playlists
 			{
 				player_force_respawn 5
 
-///if NORTHSTAR
 				// These need to be defined somewhere for private match settings defaults to work, though I don't like this
-				run_epilogue 1
-				iron_rules 0
-				cp_amped_capture_points 1
-				coliseum_loadouts_enabled 1
-				aitdm_archer_grunts 0
-				roundscorelimit 0
-				timelimit 15
-				roundtimelimit 0
-				respawnprotection 0.0
-				aegis_upgrades 0
-				infinite_doomed_state 1
-				titan_shield_regen 0
-///endif
+				run_epilogue 1 [$NORTHSTAR]
+				iron_rules 0 [$NORTHSTAR]
+				cp_amped_capture_points 1 [$NORTHSTAR]
+				coliseum_loadouts_enabled 1 [$NORTHSTAR]
+				aitdm_archer_grunts 0 [$NORTHSTAR]
+				roundscorelimit 0 [$NORTHSTAR]
+				timelimit 15 [$NORTHSTAR]
+				roundtimelimit 0 [$NORTHSTAR]
+				respawnprotection 0.0 [$NORTHSTAR]
+				aegis_upgrades 0 [$NORTHSTAR]
+				infinite_doomed_state 1 [$NORTHSTAR]
+				titan_shield_regen 0 [$NORTHSTAR]
 			}
 		}
 	}

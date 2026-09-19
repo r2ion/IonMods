@@ -1,7 +1,6 @@
 WeaponData
 {
-///if NORTHSTAR
-	Mods
+	Mods [$NORTHSTAR]
 	{
 		one_in_the_chamber
 		{
@@ -26,5 +25,4 @@ WeaponData
 			ads_move_speed_scale "1"
 		}
 	}
-///endif
 }
