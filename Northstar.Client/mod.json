@@ -45,6 +45,11 @@
       "Flags": "ARCHIVE_PLAYERPROFILE"
     },
     {
+      "Name": "modlist_show_priority_headers",
+      "DefaultValue": "0",
+      "Flags": "ARCHIVE_PLAYERPROFILE"
+    },
+    {
       "Name": "modemenu_mode_filter",
       "DefaultValue": "-1"
     },
@@ -254,10 +259,10 @@
       }
     },
     {
-      "Path": "ui/menu_ns_modworkshop.nut",
+      "Path": "ui/menu_ns_modbrowser.nut",
       "RunOn": "UI",
       "UICallback": {
-        "Before": "AddNorthstarModWorkshopMenu"
+        "Before": "AddNorthstarModBrowserMenu"
       }
     }
   ],

@@ -1,4 +1,4 @@
-"resource/ui/menus/panels/modworkshop_card.res"
+"resource/ui/menus/panels/modbrowser_card.res"
 {
 	Thumbnail
 	{
@@ -9,6 +9,19 @@
 		scaleImage 1
 		zpos 0
 		rui "ui/basic_image.rpak"
+	}
+
+	SourceBadge
+	{
+		ControlName RuiPanel
+		xpos 8
+		ypos 84
+		wide 16
+		tall 16
+		visible 0
+		scaleImage 1
+		rui "ui/basic_image.rpak"
+		zpos 8
 	}
 
 	MetadataBackground
@@ -29,7 +42,7 @@
 		ypos 110
 		wide 162
 		tall 30
-		labelText "#MWS_CARD_MOD_NAME"
+		labelText "#MOD_BROWSER_CARD_MOD_NAME"
 		font Default_18
 		fgcolor_override "255 255 255 255"
 		zpos 2
@@ -43,7 +56,7 @@
 		ypos 143
 		wide 162
 		tall 20
-		labelText "#MWS_CARD_BY_AUTHOR"
+		labelText "#MOD_BROWSER_CARD_BY_AUTHOR"
 		font Default_16
 		fgcolor_override "154 164 174 220"
 		zpos 2

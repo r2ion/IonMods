@@ -103,6 +103,26 @@ resource/ui/menus/modlist.menu
 				"#HIGH_PRIORITY" 1
 			}
 			navUp SwtBtnShowFilter
+			navDown BtnPriorityHeaders
+		}
+
+		BtnPriorityHeaders
+		{
+			ControlName RuiButton
+			InheritProperties SwitchButton
+			classname FilterPanelChild
+			xpos 1178
+			ypos 912
+			wide 500
+			tall 36
+			labelText "#MODS_PRIORITY_HEADERS"
+			ConVar "modlist_show_priority_headers"
+			list
+			{
+				"#SWITCH_NO" 0
+				"#SWITCH_YES" 1
+			}
+			navUp BtnListReverse
 			navDown BtnFiltersClear
 		}
 
@@ -112,13 +132,13 @@ resource/ui/menus/modlist.menu
 			InheritProperties RuiSmallButton
 			classname FilterPanelChild
 			xpos 1178
-			ypos 912
+			ypos 952
 			wide 500
 			tall 36
 			labelText "#CLEAR_FILTERS_LONG"
 			textAlignment center
-			navUp BtnListReverse
-			navDown BtnListReverse
+			navUp BtnPriorityHeaders
+			navDown BtnPriorityHeaders
 		}
 
 
@@ -481,6 +501,19 @@ resource/ui/menus/modlist.menu
 			scaleImage 1
 			rui "ui/basic_image.rpak"
 			zpos 2
+		}
+
+		DetailsSourceBadge
+		{
+			ControlName RuiPanel
+			xpos 1228
+			ypos 464
+			wide 24
+			tall 24
+			visible 0
+			scaleImage 1
+			rui "ui/basic_image.rpak"
+			zpos 8
 		}
 
 		DetailsName

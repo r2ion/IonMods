@@ -20,7 +20,6 @@ struct
 	var mpButton
 	var fdButton
 	var modsBrowseButton
-	var modsWorkshopButton
 	var modsManageButton
 	var modsSettingsButton
 	void functionref() mpButtonActivateFunc = null
@@ -112,7 +111,7 @@ void function InitMainMenuPanel()
 	buttonIndex = 0
 	var modsHeader = AddComboButtonHeader( comboStruct, headerIndex, "#MENU_TITLE_MODS" )
 	file.modsBrowseButton = AddComboButton( comboStruct, headerIndex, buttonIndex++, "#MODS_BROWSE" )
-	Hud_AddEventHandler( file.modsBrowseButton, UIE_CLICK, OpenModWorkshopBrowser )
+	Hud_AddEventHandler( file.modsBrowseButton, UIE_CLICK, OpenModBrowser )
 	file.modsManageButton = AddComboButton( comboStruct, headerIndex, buttonIndex++, "#MODS_MANAGE" )
 	Hud_AddEventHandler( file.modsManageButton, UIE_CLICK, OpenModsMenu )
 	file.modsSettingsButton = AddComboButton( comboStruct, headerIndex, buttonIndex++, "#SETTINGS" )
@@ -1097,7 +1096,7 @@ void function OpenModSettingsMenu( var button )
 	AdvanceMenu( GetMenu( "ModSettings" ) )
 }
 
-void function OpenModWorkshopBrowser( var button )
+void function OpenModBrowser( var button )
 {
-	AdvanceMenu( GetMenu( "ModWorkshopMenu" ) )
+	AdvanceMenu( GetMenu( "ModBrowserMenu" ) )
 }

@@ -407,10 +407,118 @@
       "argTypes": "int"
     },
 	{
-      "name": "NSMWSInitializeThumbnailAtlas",
+      "name": "NSModBrowserInitializeThumbnailAtlas",
       "helpText": "",
       "returnTypeString": "bool",
       "argTypes": ""
+    },
+    {
+      "name": "NSModBrowserRequestPage",
+      "helpText": "Requests a catalog page. Source: 4 all, 2 ModWorkshop, 3 Thunderstore.",
+      "returnTypeString": "int",
+      "argTypes": "string search, string sort, int page, int filter, bool forceRefresh, int source"
+    },
+    {
+      "name": "NSModBrowserGetPage",
+      "helpText": "",
+      "returnTypeString": "ModBrowserPageSnapshot",
+      "argTypes": ""
+    },
+    {
+      "name": "NSModBrowserIsThumbnailReady",
+      "helpText": "",
+      "returnTypeString": "bool",
+      "argTypes": "int generation, string modId, int atlasSlot"
+    },
+    {
+      "name": "NSModBrowserCancelPage",
+      "helpText": "",
+      "returnTypeString": "void",
+      "argTypes": ""
+    },
+    {
+      "name": "NSModBrowserRequestDetails",
+      "helpText": "Requests details for a provider-qualified mod ID.",
+      "returnTypeString": "int",
+      "argTypes": "string modId, bool forceRefresh"
+    },
+    {
+      "name": "NSModBrowserGetDetails",
+      "helpText": "",
+      "returnTypeString": "ModBrowserDetailsSnapshot",
+      "argTypes": ""
+    },
+    {
+      "name": "NSModBrowserCancelDetails",
+      "helpText": "",
+      "returnTypeString": "void",
+      "argTypes": ""
+    },
+    {
+      "name": "NSModBrowserInstall",
+      "helpText": "Installs a provider-qualified mod ID.",
+      "returnTypeString": "bool",
+      "argTypes": "string modId"
+    },
+    {
+      "name": "NSModBrowserUpdate",
+      "helpText": "Updates a provider-qualified mod ID.",
+      "returnTypeString": "bool",
+      "argTypes": "string modId"
+    },
+    {
+      "name": "NSModBrowserRemove",
+      "helpText": "Removes a provider-qualified mod ID.",
+      "returnTypeString": "bool",
+      "argTypes": "string modId"
+    },
+    {
+      "name": "NSModBrowserGetOperationState",
+      "helpText": "",
+      "returnTypeString": "ModBrowserOperationSnapshot",
+      "argTypes": ""
+    },
+    {
+      "name": "NSModBrowserDecideMigration",
+      "helpText": "",
+      "returnTypeString": "bool",
+      "argTypes": "int generation, bool accept"
+    },
+    {
+      "name": "NSModBrowserCancelOperation",
+      "helpText": "",
+      "returnTypeString": "void",
+      "argTypes": ""
+    },
+    {
+      "name": "NSModBrowserRefreshTrackedMods",
+      "helpText": "",
+      "returnTypeString": "int",
+      "argTypes": "bool checkRemote"
+    },
+    {
+      "name": "NSModBrowserGetInventoryState",
+      "helpText": "",
+      "returnTypeString": "ModBrowserInventorySnapshot",
+      "argTypes": ""
+    },
+    {
+      "name": "NSModBrowserOpenPage",
+      "helpText": "Opens the provider page for a qualified mod ID.",
+      "returnTypeString": "bool",
+      "argTypes": "string modId"
+    },
+    {
+      "name": "NSModBrowserGetThumbnailImage",
+      "helpText": "Gets the generic image asset for a slot.",
+      "returnTypeString": "asset",
+      "argTypes": "int slot"
+    },
+    {
+      "name": "NSModBrowserLoadImage",
+      "helpText": "Loads a mod-owned image into an independent generic slot (24 or 25).",
+      "returnTypeString": "bool",
+      "argTypes": "int slot, string gameRelativePath"
     },
     {
       "name": "NSSetModDownloadReady",

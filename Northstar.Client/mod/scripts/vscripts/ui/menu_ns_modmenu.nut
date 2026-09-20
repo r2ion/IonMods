@@ -3,7 +3,6 @@ untyped
 global function AddNorthstarModMenu
 global function AddNorthstarModMenu_MainMenuFooter
 global function ReloadMods
-global function NSUICodeCallback_ModIconReady
 
 enum eModsMenuFilter
 {
@@ -49,9 +48,12 @@ struct
 	bool enabledStateDirty = false
 	int lastInventoryGeneration = 0
 	int lastOperationGeneration = 0
-	int lastOperationState = eMWSInstallState.IDLE
+	int lastOperationState = eModBrowserInstallState.IDLE
 	int iconGeneration = 0
+	int iconAtlas = 0
+	int openGeneration = 0
 	bool reversePriority = false
+	bool showPriorityHeaders = false
 	bool rightClickHeld = false
 	bool cardDialogPending = false
 	int cardDialogGeneration = 0
@@ -67,6 +69,11 @@ const int MODS_CARD_COUNT = MODS_CARD_COLUMNS * MODS_ROWS_PER_PAGE
 const int MODS_DETAILS_LINE_WIDTH = 70
 const int MODS_DETAILS_VISIBLE_LINES = 4
 const int MODS_FULL_DETAILS_VISIBLE_LINES = 11
+const int MODS_ICON_WIDTH = 504
+const int MODS_ICON_HEIGHT = 252
+const int MODS_ICON_GUTTER = 4
+const vector MODS_ICON_PENDING = <0.08, 0.09, 0.11>
+const vector MODS_ICON_ERROR = <0.16, 0.09, 0.10>
 // Raw mouse InputEvent codes are one higher than the UI button constants in this game build.
 const int MODS_MOUSE_RIGHT_INPUT = MOUSE_RIGHT + 1
 const string[ 4 ] CORE_MODS = [ "Northstar.Client", "Northstar.Coop", "Northstar.CustomServers", "Northstar.Custom" ]
@@ -146,6 +153,7 @@ void function InitModMenu()
 	AddButtonEventHandler( Hud_GetChild( file.menu, "BtnModsSearch" ), UIE_CHANGE, OnModsFilterChanged )
 	AddButtonEventHandler( Hud_GetChild( file.menu, "SwtBtnShowFilter" ), UIE_CHANGE, OnModsFilterChanged )
 	AddButtonEventHandler( Hud_GetChild( file.menu, "BtnListReverse" ), UIE_CHANGE, OnModsFilterChanged )
+	AddButtonEventHandler( Hud_GetChild( file.menu, "BtnPriorityHeaders" ), UIE_CHANGE, OnModsFilterChanged )
 	AddButtonEventHandler( Hud_GetChild( file.menu, "BtnFiltersClear" ), UIE_CLICK, OnModsFiltersClear )
 
 	AddCallback_InputEvent( InputEventType.IE_AnalogValueChanged, OnModsAnalogueScroll )
@@ -182,6 +190,7 @@ void function InitModMenu()
 
 	RuiSetString( Hud_GetRui( Hud_GetChild( file.menu, "SwtBtnShowFilter" ) ), "buttonText", "" )
 	RuiSetString( Hud_GetRui( Hud_GetChild( file.menu, "BtnListReverse" ) ), "buttonText", "" )
+	RuiSetString( Hud_GetRui( Hud_GetChild( file.menu, "BtnPriorityHeaders" ) ), "buttonText", "" )
 }
 
 void function InitModDetailsMenu()
@@ -198,8 +207,8 @@ void function InitModDetailsMenu()
 	AddMenuFooterOption(
 		file.detailsMenu,
 		BUTTON_X,
-		"%[X_BUTTON|]% " + Localize( "#MWS_ACTION_UPDATE" ),
-		"#MWS_ACTION_UPDATE",
+		"%[X_BUTTON|]% " + Localize( "#MOD_BROWSER_ACTION_UPDATE" ),
+		"#MOD_BROWSER_ACTION_UPDATE",
 		OnUpdateModButtonPressed,
 		ModsMenu_ShouldShowUpdateFooter
 	)
@@ -214,8 +223,8 @@ void function InitModDetailsMenu()
 	AddMenuFooterOption(
 		file.detailsMenu,
 		BUTTON_SHOULDER_LEFT,
-		"%[L_SHOULDER|]% " + Localize( "#MODS_OPEN_WORKSHOP_PAGE" ),
-		"#MODS_OPEN_WORKSHOP_PAGE",
+		"%[L_SHOULDER|]% " + Localize( "#MODS_OPEN_MOD_PAGE" ),
+		"#MODS_OPEN_MOD_PAGE",
 		OnModPageButtonPressed,
 		ModsMenu_ShouldShowPageFooter,
 		UpdateModsPageFooter
@@ -250,6 +259,7 @@ void function OnModDetailsNavigateBack()
 void function OnModMenuOpened()
 {
 	file.isOpen = true
+	file.openGeneration++
 	file.cardDialogGeneration++
 	file.rightClickHeld = false
 	file.cardDialogPending = false
@@ -262,22 +272,25 @@ void function OnModMenuOpened()
 	file.enabledStateDirty = false
 	file.enabledMods = GetEnabledModsArray()
 	UI_SetPresentationType( ePresentationType.NO_MODELS )
-	NSMWSInitializeThumbnailAtlas()
+	ModsMenu_CreateIconAtlas()
+	ModBrowser_LoadSourceImages()
 
-	MWSInventorySnapshot inventory = NSMWSGetInventoryState()
+	ModBrowserInventorySnapshot inventory = NSModBrowserGetInventoryState()
 	file.lastInventoryGeneration = inventory.generation
-	MWSOperationSnapshot operation = NSMWSGetOperationState()
+	ModBrowserOperationSnapshot operation = NSModBrowserGetOperationState()
 	file.lastOperationGeneration = operation.generation
 	file.lastOperationState = operation.state
-	NSMWSRefreshTrackedMods( true )
+	NSModBrowserRefreshTrackedMods( true )
 
 	ModsMenu_RefreshAndRender( true )
-	thread ModsMenu_PollState()
+	thread ModsMenu_PollState( file.openGeneration )
 }
 
 void function OnModMenuClosed()
 {
 	file.isOpen = false
+	file.openGeneration++
+	file.iconGeneration++
 	file.cardDialogGeneration++
 	file.rightClickHeld = false
 	file.cardDialogPending = false
@@ -291,13 +304,15 @@ void function OnModMenuClosed()
 		ClientCommand( "retry" )
 }
 
-void function ModsMenu_PollState()
+void function ModsMenu_PollState( int generation )
 {
-	while ( file.isOpen )
+	while ( file.isOpen && generation == file.openGeneration )
 	{
 		WaitFrame()
-		MWSInventorySnapshot inventory = NSMWSGetInventoryState()
-		MWSOperationSnapshot operation = NSMWSGetOperationState()
+		if ( !file.isOpen || generation != file.openGeneration )
+			return
+		ModBrowserInventorySnapshot inventory = NSModBrowserGetInventoryState()
+		ModBrowserOperationSnapshot operation = NSModBrowserGetOperationState()
 		bool inventoryChanged = inventory.generation != file.lastInventoryGeneration
 		bool operationChanged = operation.generation != file.lastOperationGeneration || operation.state != file.lastOperationState
 		if ( !inventoryChanged && !operationChanged )
@@ -306,7 +321,7 @@ void function ModsMenu_PollState()
 		file.lastInventoryGeneration = inventory.generation
 		file.lastOperationGeneration = operation.generation
 		file.lastOperationState = operation.state
-		if ( operation.state == eMWSInstallState.DONE )
+		if ( operation.state == eModBrowserInstallState.DONE )
 			file.enabledStateDirty = false
 		ModsMenu_RefreshAndRender( false )
 	}
@@ -378,6 +393,7 @@ void function ModsMenu_RefreshMods()
 	string search = Hud_GetUTF8Text( Hud_GetChild( file.menu, "BtnModsSearch" ) ).tolower()
 	int filter = GetConVarInt( "filter_mods" )
 	file.reversePriority = GetConVarBool( "modlist_reverse" )
+	file.showPriorityHeaders = GetConVarBool( "modlist_show_priority_headers" )
 
 	foreach ( ModInfo mod in file.mods )
 	{
@@ -436,7 +452,8 @@ void function ModsMenu_BuildRows()
 		if ( !needsRow )
 		{
 			ModsMenuRow current = file.rows[ file.rows.len() - 1 ]
-			needsRow = current.loadPriority != mod.loadPriority || current.modIndices.len() >= MODS_CARD_COLUMNS
+			needsRow = current.modIndices.len() >= MODS_CARD_COLUMNS ||
+				( file.showPriorityHeaders && current.loadPriority != mod.loadPriority )
 		}
 		if ( needsRow )
 		{
@@ -537,30 +554,42 @@ int function ModsMenu_GetPageCount()
 void function ModsMenu_RenderCards( bool focusSelection )
 {
 	ModsMenu_HideCards()
-	array<int> iconIndices
+	file.iconGeneration++
 	file.iconReady.clear()
 	for ( int slot = 0; slot < MODS_CARD_COUNT; slot++ )
 	{
-		iconIndices.append( -1 )
+		ScriptAtlasClearImage( file.iconAtlas, slot, MODS_ICON_PENDING, 1.0 )
 		file.iconReady.append( false )
 	}
 
 	int firstRow = file.page * MODS_ROWS_PER_PAGE
+	float screenScale = float( GetScreenSize()[ 1 ] ) / 1080.0
+	float firstCardY = file.showPriorityHeaders ? 210.0 : 180.0
+	float rowStride = file.showPriorityHeaders ? 210.0 : 178.0
+	Hud_SetY(
+		Hud_GetChild( file.menu, "PageLabel" ),
+		int( ( firstCardY + ( MODS_ROWS_PER_PAGE - 1 ) * rowStride + 5.0 ) * screenScale ) + Hud_GetHeight( file.cards[ 0 ] )
+	)
 	for ( int displayRow = 0; displayRow < MODS_ROWS_PER_PAGE; displayRow++ )
 	{
 		int rowIndex = firstRow + displayRow
 		if ( rowIndex >= file.rows.len() )
 			continue
 		ModsMenuRow row = file.rows[ rowIndex ]
-		var header = file.priorityHeaders[ displayRow ]
-		Hud_SetText( header, Localize( "#MODS_LOAD_PRIORITY_HEADER", string( row.loadPriority ) ) )
-		Hud_SetVisible( header, true )
+		if ( file.showPriorityHeaders )
+		{
+			var header = file.priorityHeaders[ displayRow ]
+			Hud_SetText( header, Localize( "#MODS_LOAD_PRIORITY_HEADER", string( row.loadPriority ) ) )
+			Hud_SetVisible( header, true )
+		}
+		int cardY = int( ( firstCardY + displayRow * rowStride ) * screenScale )
 		foreach ( int column, int modIndex in row.modIndices )
 		{
 			int slot = displayRow * MODS_CARD_COLUMNS + column
 			ModInfo mod = file.visibleMods[ modIndex ]
 			var card = file.cards[ slot ]
 			var button = Hud_GetChild( card, "BtnMod" )
+			Hud_SetY( card, cardY )
 			Hud_SetVisible( card, true )
 			Hud_SetVisible( button, true )
 			Hud_SetEnabled( button, true )
@@ -569,13 +598,14 @@ void function ModsMenu_RenderCards( bool focusSelection )
 			ModsMenu_LayoutCardMetadata( card )
 			Hud_SetText( Hud_GetChild( card, "ModVersion" ), Localize( "#MODS_VERSION_SHORT", mod.version ) )
 			Hud_SetText( Hud_GetChild( card, "ModStatus" ), ModsMenu_GetStatusText( mod ) )
-			RuiSetImage( Hud_GetRui( Hud_GetChild( card, "ModIcon" ) ), "basicImage", ModsMenu_GetIconAsset( slot ) )
+			RuiSetImage( Hud_GetRui( Hud_GetChild( card, "ModIcon" ) ), "basicImage", ScriptAtlasGetImage( file.iconAtlas, slot ) )
 			Hud_SetVisible( Hud_GetChild( card, "ModIcon" ), false )
-			iconIndices[ slot ] = mod.index
+			if ( mod.hasIcon )
+				thread ModsMenu_LoadIcon( slot, mod, file.iconGeneration )
+			ModBrowser_SetSourceBadge( card, "Source", mod.managedId == "" ? 0 : mod.source, true )
 			ModsMenu_SetCardAppearance( card, mod )
 		}
 	}
-	file.iconGeneration = NSRequestModIconPage( iconIndices )
 
 	bool empty = file.visibleMods.len() == 0
 	Hud_SetVisible( Hud_GetChild( file.menu, "EmptyLabel" ), empty )
@@ -614,43 +644,67 @@ void function ModsMenu_HideCards()
 	}
 }
 
-void function NSUICodeCallback_ModIconReady( int generation, int atlasSlot )
+void function ModsMenu_CreateIconAtlas()
 {
-	if ( !file.isOpen || generation != file.iconGeneration || atlasSlot < 0 || atlasSlot >= MODS_CARD_COUNT )
+	if ( file.iconAtlas != 0 )
 		return
-	int modIndex = ModsMenu_GetVisibleIndexForSlot( atlasSlot )
-	if ( modIndex < 0 || modIndex >= file.visibleMods.len() || !file.visibleMods[ modIndex ].hasIcon )
-		return
-	file.iconReady[ atlasSlot ] = true
-	Hud_SetVisible( Hud_GetChild( file.cards[ atlasSlot ], "ModIcon" ), true )
-	if ( modIndex == file.selectedIndex )
-		Hud_SetVisible( Hud_GetChild( file.menu, "DetailsImage" ), true )
+	array<ScriptAtlasImage> images
+	int strideX = MODS_ICON_WIDTH + MODS_ICON_GUTTER * 2
+	int strideY = MODS_ICON_HEIGHT + MODS_ICON_GUTTER * 2
+	for ( int slot = 0; slot < MODS_CARD_COUNT; slot++ )
+	{
+		ScriptAtlasImage image
+		image.name = "northstar/modmenu/icon_" + slot
+		image.x = ( slot % MODS_CARD_COLUMNS ) * strideX + MODS_ICON_GUTTER
+		image.y = ( slot / MODS_CARD_COLUMNS ) * strideY + MODS_ICON_GUTTER
+		image.width = MODS_ICON_WIDTH
+		image.height = MODS_ICON_HEIGHT
+		image.gutter = MODS_ICON_GUTTER
+		images.append( image )
+	}
+	file.iconAtlas = ScriptAtlasCreate( "northstar/modmenu/icons", MODS_CARD_COLUMNS * strideX, MODS_ROWS_PER_PAGE * strideY, images )
 }
 
-asset function ModsMenu_GetIconAsset( int slot )
+void function ModsMenu_LoadIcon( int slot, ModInfo mod, int generation )
 {
-	switch ( slot )
+	array<string> sources
+	if ( mod.iconPath != "" )
+		sources.append( mod.iconPath )
+	if ( mod.iconUrl != "" )
+		sources.append( mod.iconUrl )
+	if ( mod.iconFallbackUrl != "" && mod.iconFallbackUrl != mod.iconUrl )
+		sources.append( mod.iconFallbackUrl )
+	int nextSource = 0
+	bool requested = false
+	bool failed = false
+	while ( file.isOpen && generation == file.iconGeneration )
 	{
-		case 0: return $"rui/ns/modworkshop/card_0"
-		case 1: return $"rui/ns/modworkshop/card_1"
-		case 2: return $"rui/ns/modworkshop/card_2"
-		case 3: return $"rui/ns/modworkshop/card_3"
-		case 4: return $"rui/ns/modworkshop/card_4"
-		case 5: return $"rui/ns/modworkshop/card_5"
-		case 6: return $"rui/ns/modworkshop/card_6"
-		case 7: return $"rui/ns/modworkshop/card_7"
-		case 8: return $"rui/ns/modworkshop/card_8"
-		case 9: return $"rui/ns/modworkshop/card_9"
-		case 10: return $"rui/ns/modworkshop/card_10"
-		case 11: return $"rui/ns/modworkshop/card_11"
-		case 12: return $"rui/ns/modworkshop/card_12"
-		case 13: return $"rui/ns/modworkshop/card_13"
-		case 14: return $"rui/ns/modworkshop/card_14"
-		case 15: return $"rui/ns/modworkshop/card_15"
-		case 16: return $"rui/ns/modworkshop/card_16"
-		case 17: return $"rui/ns/modworkshop/card_17"
+		int state = ScriptAtlasGetImageState( file.iconAtlas, slot )
+		if ( !failed && ( !requested || state == eScriptAtlasImageState.FAILED ) )
+		{
+			requested = false
+			while ( nextSource < sources.len() && !requested )
+			{
+				string source = sources[ nextSource++ ]
+				requested = ScriptAtlasLoadImage( file.iconAtlas, slot, source, mod.iconVersion, eScriptAtlasFit.COVER )
+			}
+			if ( !requested )
+			{
+				ScriptAtlasClearImage( file.iconAtlas, slot, MODS_ICON_ERROR, 1.0 )
+				failed = true
+			}
+			state = ScriptAtlasGetImageState( file.iconAtlas, slot )
+		}
+		bool ready = state == eScriptAtlasImageState.READY
+		if ( file.iconReady[ slot ] != ready )
+		{
+			file.iconReady[ slot ] = ready
+			Hud_SetVisible( Hud_GetChild( file.cards[ slot ], "ModIcon" ), ready )
+			if ( ModsMenu_GetVisibleIndexForSlot( slot ) == file.selectedIndex )
+				Hud_SetVisible( Hud_GetChild( file.menu, "DetailsImage" ), ready )
+		}
+		wait 0.05
 	}
-	return $""
 }
 
 void function ModsMenu_SetCardAppearance( var card, ModInfo mod )
@@ -665,7 +719,7 @@ void function ModsMenu_SetCardAppearance( var card, ModInfo mod )
 	Hud_SetVisible( enabledImage, true )
 	Hud_SetVisible( Hud_GetChild( card, "WarningImage" ), mod.requiredOnClient )
 	var updateBadge = Hud_GetChild( card, "UpdateBadge" )
-	bool hasUpdate = mod.updateState == eMWSUpdateState.UPDATE_AVAILABLE
+	bool hasUpdate = mod.updateState == eModBrowserUpdateState.UPDATE_AVAILABLE
 	Hud_SetVisible( updateBadge, hasUpdate )
 }
 
@@ -869,7 +923,7 @@ bool function ModsMenu_ShouldShowPageFooter()
 	if ( modIndex < 0 || modIndex >= file.mods.len() )
 		return false
 	ModInfo mod = file.mods[ modIndex ]
-	return mod.managedId != "" || mod.downloadLink != ""
+	return ModsMenu_GetBrowserId( mod ) != "" || mod.downloadLink != ""
 }
 
 bool function ModsMenu_ShouldShowUpdateFooter()
@@ -878,8 +932,8 @@ bool function ModsMenu_ShouldShowUpdateFooter()
 		return false
 	int modIndex = ModsMenu_GetSelectedSourceIndex()
 	return modIndex >= 0 && modIndex < file.mods.len() &&
-		ModsMenu_CanUpdateWorkshopMod( file.mods[ modIndex ] ) &&
-		!ModsMenu_IsOperationBusy( NSMWSGetOperationState().state )
+		ModsMenu_CanUpdateManagedMod( file.mods[ modIndex ] ) &&
+		!ModsMenu_IsOperationBusy( NSModBrowserGetOperationState().state )
 }
 
 bool function ModsMenu_ShouldShowUninstallFooter()
@@ -889,7 +943,7 @@ bool function ModsMenu_ShouldShowUninstallFooter()
 	int modIndex = ModsMenu_GetSelectedSourceIndex()
 	return modIndex >= 0 && modIndex < file.mods.len() &&
 		file.mods[ modIndex ].canDelete &&
-		!ModsMenu_IsOperationBusy( NSMWSGetOperationState().state )
+		!ModsMenu_IsOperationBusy( NSModBrowserGetOperationState().state )
 }
 
 void function UpdateModsPageFooter( InputDef data )
@@ -901,7 +955,7 @@ void function UpdateModsPageFooter( InputDef data )
 		int modIndex = ModsMenu_GetSelectedSourceIndex()
 		if ( modIndex >= 0 && modIndex < file.mods.len() )
 		{
-			string label = file.mods[ modIndex ].managedId != "" ? "#MODS_OPEN_WORKSHOP_PAGE" : "#MODS_OPEN_DOWNLOAD_PAGE"
+			string label = ModsMenu_GetBrowserId( file.mods[ modIndex ] ) != "" ? "#MODS_OPEN_MOD_PAGE" : "#MODS_OPEN_DOWNLOAD_PAGE"
 			SetFooterText(
 				file.detailsMenu,
 				footerIndex,
@@ -944,9 +998,10 @@ void function ModsMenu_UpdateDetails()
 	int slot = ModsMenu_GetSlotForVisibleIndex( file.selectedIndex )
 	var detailsImage = Hud_GetChild( file.menu, "DetailsImage" )
 	if ( slot >= 0 && slot < MODS_CARD_COUNT )
-		RuiSetImage( Hud_GetRui( detailsImage ), "basicImage", ModsMenu_GetIconAsset( slot ) )
+		RuiSetImage( Hud_GetRui( detailsImage ), "basicImage", ScriptAtlasGetImage( file.iconAtlas, slot ) )
 	bool iconVisible = slot >= 0 && slot < file.iconReady.len() && mod.hasIcon && file.iconReady[ slot ]
 	Hud_SetVisible( detailsImage, iconVisible )
+	ModBrowser_SetSourceBadge( file.menu, "DetailsSource", mod.managedId == "" ? 0 : mod.source, true )
 
 	ModsMenu_SetCardTitle( Hud_GetChild( file.menu, "DetailsName" ), mod.name, 460.0 )
 	Hud_SetText(
@@ -972,6 +1027,8 @@ void function ModsMenu_SetDetailsVisible( bool visible )
 	foreach ( var element in file.detailsElements )
 		Hud_SetVisible( element, visible )
 	Hud_SetEnabled( file.detailsPreviewFocus, visible )
+	if ( !visible )
+		ModBrowser_SetSourceBadge( file.menu, "DetailsSource", 0, false )
 }
 
 void function ModsMenu_ClearDetails()
@@ -986,8 +1043,8 @@ void function ModsMenu_ClearDetails()
 
 string function ModsMenu_GetDetailsSource( ModInfo mod )
 {
-	if ( mod.managedId != "" )
-		return Localize( "#MODS_SOURCE_MODWORKSHOP" )
+	if ( ModsMenu_GetBrowserId( mod ) != "" )
+		return ModBrowser_GetSourceName( mod.source )
 	if ( mod.isRemote )
 		return Localize( "#MODS_SOURCE_REMOTE" )
 	return Localize( "#MODS_SOURCE_LOCAL" )
@@ -1192,7 +1249,7 @@ void function ModsMenu_ScrollFullDetails( int direction )
 
 string function ModsMenu_GetStatusText( ModInfo mod )
 {
-	if ( mod.updateState == eMWSUpdateState.UPDATE_AVAILABLE )
+	if ( mod.updateState == eModBrowserUpdateState.UPDATE_AVAILABLE )
 		return Localize( "#MODS_STATUS_UPDATE_AVAILABLE" )
 	return Localize( mod.enabled ? "#SHOW_ONLY_ENABLED" : "#SHOW_ONLY_DISABLED" )
 }
@@ -1270,9 +1327,9 @@ void function OnModPageButtonPressed( var button )
 	if ( modIndex < 0 || modIndex >= file.mods.len() )
 		return
 	ModInfo mod = file.mods[ modIndex ]
-	if ( mod.managedId != "" )
+	if ( ModsMenu_GetBrowserId( mod ) != "" )
 	{
-		NSMWSOpenPage( mod.managedId )
+		NSModBrowserOpenPage( ModsMenu_GetBrowserId( mod ) )
 		return
 	}
 	if ( mod.downloadLink == "" )
@@ -1308,8 +1365,8 @@ void function ModsMenu_RequestDetailsAction( bool update )
 	if ( modIndex < 0 || modIndex >= file.mods.len() )
 		return
 	ModInfo mod = file.mods[ modIndex ]
-	if ( ModsMenu_IsOperationBusy( NSMWSGetOperationState().state ) ||
-		( update ? !ModsMenu_CanUpdateWorkshopMod( mod ) : !mod.canDelete ) )
+	if ( ModsMenu_IsOperationBusy( NSModBrowserGetOperationState().state ) ||
+		( update ? !ModsMenu_CanUpdateManagedMod( mod ) : !mod.canDelete ) )
 	{
 		return
 	}
@@ -1336,8 +1393,8 @@ void function ModsMenu_OpenDetailsActionDialog( int stableIndex, string modName,
 	}
 	ModInfo mod = file.mods[ modIndex ]
 	if ( mod.index != stableIndex || mod.name != modName || mod.version != modVersion ||
-		ModsMenu_IsOperationBusy( NSMWSGetOperationState().state ) ||
-		( update ? !ModsMenu_CanUpdateWorkshopMod( mod ) : !mod.canDelete ) )
+		ModsMenu_IsOperationBusy( NSModBrowserGetOperationState().state ) ||
+		( update ? !ModsMenu_CanUpdateManagedMod( mod ) : !mod.canDelete ) )
 	{
 		ModsMenu_ClearDetailsDialogPending( generation )
 		return
@@ -1346,9 +1403,9 @@ void function ModsMenu_OpenDetailsActionDialog( int stableIndex, string modName,
 	DialogData dialogData
 	if ( update )
 	{
-		dialogData.header = "#MWS_UPDATE_MOD"
+		dialogData.header = "#MOD_BROWSER_UPDATE_MOD"
 		dialogData.message = Localize( "#MODS_CONFIRM_UPDATE", mod.name )
-		AddDialogButton( dialogData, "#MWS_ACTION_UPDATE", ModsMenu_ConfirmWorkshopUpdate )
+		AddDialogButton( dialogData, "#MOD_BROWSER_ACTION_UPDATE", ModsMenu_ConfirmManagedUpdate )
 	}
 	else
 	{
@@ -1366,14 +1423,14 @@ void function OnUpdateModButtonPressed( var button )
 	ModsMenu_RequestDetailsAction( true )
 }
 
-void function ModsMenu_ConfirmWorkshopUpdate()
+void function ModsMenu_ConfirmManagedUpdate()
 {
 	int modIndex = ModsMenu_GetSelectedSourceIndex()
 	if ( modIndex < 0 || modIndex >= file.mods.len() )
 		return
 	ModInfo mod = file.mods[ modIndex ]
-	if ( !NSMWSUpdate( mod.managedId ) )
-		ModsMenu_ShowActionError( "#MODS_WORKSHOP_QUEUE_FAILED" )
+	if ( !NSModBrowserUpdate( ModsMenu_GetBrowserId( mod ) ) )
+		ModsMenu_ShowActionError( "#MODS_ACTION_QUEUE_FAILED" )
 }
 
 void function OnDeleteModButtonPressed( var button )
@@ -1389,7 +1446,7 @@ void function ModsMenu_ConfirmDelete()
 	ModInfo mod = file.mods[ modIndex ]
 	if ( !NSRemoveMod( mod.index ) )
 	{
-		ModsMenu_ShowActionError( "#MODS_DELETE_QUEUE_FAILED" )
+		ModsMenu_ShowActionError( "#MODS_DELETE_QUEUE_FAILED", "#MODS_UNINSTALL_ERROR_TITLE" )
 		return
 	}
 	thread ModsMenu_CloseFullDetailsAfterDelete()
@@ -1402,37 +1459,49 @@ void function ModsMenu_CloseFullDetailsAfterDelete()
 		CloseActiveMenu()
 }
 
-void function ModsMenu_ShowActionError( string message )
+void function ModsMenu_ShowActionError( string message, string title = "#MOD_BROWSER_ERROR_TITLE" )
 {
-	thread ModsMenu_OpenActionError( message )
+	thread ModsMenu_OpenActionError( message, title )
 }
 
-void function ModsMenu_OpenActionError( string message )
+void function ModsMenu_OpenActionError( string message, string title )
 {
 	WaitFrame()
 	if ( !file.isOpen || ( uiGlobal.activeMenu != file.detailsMenu && uiGlobal.activeMenu != file.menu ) )
 		return
 	DialogData dialogData
-	dialogData.header = "#MWS_ERROR_TITLE"
+	dialogData.header = title
 	dialogData.message = message
 	dialogData.image = $"ui/menu/common/dialog_error"
 	AddDialogButton( dialogData, "#OK" )
 	OpenDialog( dialogData )
 }
-bool function ModsMenu_CanUpdateWorkshopMod( ModInfo mod )
+string function ModsMenu_GetBrowserId( ModInfo mod )
 {
-	return mod.managedId != "" && mod.updateState == eMWSUpdateState.UPDATE_AVAILABLE
+	if ( mod.managedId == "" )
+		return ""
+	if ( mod.source == 2 )
+		return "modworkshop:" + mod.managedId
+	if ( mod.source == 3 )
+		return "thunderstore:" + mod.managedId
+	return ""
+}
+
+bool function ModsMenu_CanUpdateManagedMod( ModInfo mod )
+{
+	return ModsMenu_GetBrowserId( mod ) != "" && mod.updateState == eModBrowserUpdateState.UPDATE_AVAILABLE
 }
 
 
 bool function ModsMenu_IsOperationBusy( int state )
 {
-	return state >= eMWSInstallState.QUEUED && state <= eMWSInstallState.RELOADING
+	return ( state >= eModBrowserInstallState.QUEUED && state <= eModBrowserInstallState.RELOADING ) ||
+		state == eModBrowserInstallState.AWAITING_MIGRATION
 }
 
 bool function ModsMenu_IsOperationTerminal( int state )
 {
-	return state == eMWSInstallState.DONE || state == eMWSInstallState.FAILED || state == eMWSInstallState.CANCELLED
+	return state == eModBrowserInstallState.DONE || state == eModBrowserInstallState.FAILED || state == eModBrowserInstallState.CANCELLED
 }
 
 array<ModInfo> function GetEnabledModsArray()
@@ -1453,9 +1522,9 @@ void function OnReloadModsButtonPressed( var button )
 		ClientCommand( "retry" )
 }
 
-void function OpenModWorkshopMenu( var button )
+void function OpenModBrowserMenu( var button )
 {
-	AdvanceMenu( GetMenu( "ModWorkshopMenu" ) )
+	AdvanceMenu( GetMenu( "ModBrowserMenu" ) )
 }
 
 void function OnModSettingsButtonPressed( var button )

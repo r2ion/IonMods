@@ -35,6 +35,31 @@ global struct UIPresenceStruct
 	int party_max_players
 }
 
+global struct ScriptAtlasImage
+{
+	string name
+	int x
+	int y
+	int width
+	int height
+	int gutter
+}
+
+global enum eScriptAtlasFit
+{
+	COVER = 0
+	CONTAIN
+	STRETCH
+}
+
+global enum eScriptAtlasImageState
+{
+	EMPTY = 0
+	LOADING
+	READY
+	FAILED
+}
+
 global struct ModInfo
 {
 	string name = ""
@@ -54,6 +79,10 @@ global struct ModInfo
 	int index = -1
 	bool hasIcon = false
 	array<string> assets = []
+	string iconPath = ""
+	string iconUrl = ""
+	string iconVersion = ""
+	string iconFallbackUrl = ""
 }
 
 global struct RequiredModInfo
@@ -94,7 +123,7 @@ global struct ModInstallState
 	float ratio
 }
 
-global enum eMWSLoadState
+global enum eModBrowserLoadState
 {
 	IDLE = 0
 	LOADING
@@ -103,7 +132,7 @@ global enum eMWSLoadState
 	CANCELLED
 }
 
-global enum eMWSUpdateState
+global enum eModBrowserUpdateState
 {
 	LEGACY_UNKNOWN = 0
 	CHECKING
@@ -114,7 +143,7 @@ global enum eMWSUpdateState
 	ERROR
 }
 
-global enum eMWSInstallAction
+global enum eModBrowserInstallAction
 {
 	INSTALL = 0
 	UPDATE
@@ -122,7 +151,7 @@ global enum eMWSInstallAction
 	REMOVE
 }
 
-global enum eMWSInstallState
+global enum eModBrowserInstallState
 {
 	IDLE = 0
 	QUEUED
@@ -139,7 +168,7 @@ global enum eMWSInstallState
 	AWAITING_MIGRATION
 }
 
-global struct MWSPageEntry
+global struct ModBrowserPageEntry
 {
 	string id
 	string name
@@ -149,7 +178,7 @@ global struct MWSPageEntry
 	int downloads
 	int likes
 	int views
-	int atlasSlot
+	string thumbnailUrl
 	bool installed
 	int updateState
 	int operationState
@@ -158,9 +187,12 @@ global struct MWSPageEntry
 	string pageUrl
 	bool canInstall
 	string selectedFileId
+	int source
+	string thumbnailFallbackUrl
+	string thumbnailVersion
 }
 
-global struct MWSPageSnapshot
+global struct ModBrowserPageSnapshot
 {
 	int state
 	int generation
@@ -172,10 +204,10 @@ global struct MWSPageSnapshot
 	int total
 	bool fromCache
 	string error
-	array<MWSPageEntry> entries
+	array<ModBrowserPageEntry> entries
 }
 
-global struct MWSDetailsSnapshot
+global struct ModBrowserDetailsSnapshot
 {
 	int state
 	int generation
@@ -197,9 +229,10 @@ global struct MWSDetailsSnapshot
 	array<string> dependencies
 	bool fromCache
 	string error
+	int source
 }
 
-global struct MWSOperationSnapshot
+global struct ModBrowserOperationSnapshot
 {
 	int generation
 	string id
@@ -214,7 +247,7 @@ global struct MWSOperationSnapshot
 	bool cancellationDeferred
 }
 
-global struct MWSInventorySnapshot
+global struct ModBrowserInventorySnapshot
 {
 	int generation
 	int updateCount

@@ -15,6 +15,19 @@ resource/ui/menus/panels/modlist_settings.res
 		rui "ui/basic_image.rpak"
 	}
 
+	SourceBadge
+	{
+		ControlName RuiPanel
+		xpos 8
+		ypos 79
+		wide 16
+		tall 16
+		visible 0
+		scaleImage 1
+		rui "ui/basic_image.rpak"
+		zpos 8
+	}
+
 	MetadataBackground
 	{
 		ControlName RuiPanel
@@ -113,7 +126,7 @@ resource/ui/menus/panels/modlist_settings.res
 		ypos 12
 		wide 80
 		tall 22
-		labelText "#MWS_ACTION_UPDATE"
+		labelText "#MOD_BROWSER_ACTION_UPDATE"
 		font Default_16
 		allcaps 1
 		textAlignment center

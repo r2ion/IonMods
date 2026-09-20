@@ -1,4 +1,4 @@
-resource/ui/menus/modworkshop.menu
+resource/ui/menus/modbrowser.menu
 {
 	menu
 	{
@@ -26,7 +26,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName Label
 			InheritProperties MenuTitle
-			labelText "#MODS_MOD_WORKSHOP"
+			labelText "#MODS_BROWSER_TITLE"
 		}
 
 		SearchLabel
@@ -41,7 +41,7 @@ resource/ui/menus/modworkshop.menu
 			textAlignment west
 		}
 
-		MwsSearch
+		ModBrowserSearch
 		{
 			ControlName TextEntry
 			xpos 1278
@@ -56,11 +56,11 @@ resource/ui/menus/modworkshop.menu
 			allowSpecialCharacters 1
 			unicode 1
 			navUp CardButton17
-			navRight MwsSort
-			navDown MwsSort
+			navRight ModBrowserSort
+			navDown ModBrowserSort
 		}
 
-		MwsSort
+		ModBrowserSort
 		{
 			ControlName RuiButton
 			InheritProperties SwitchButton
@@ -68,25 +68,25 @@ resource/ui/menus/modworkshop.menu
 			ypos 832
 			wide 500
 			tall 36
-			labelText "#MWS_SORT"
+			labelText "#MOD_BROWSER_SORT"
 			list
 			{
-				"#MWS_SORT_RECENTLY_UPDATED" "bumped_at"
-				"#MWS_SORT_PUBLISHED" "published_at"
-				"#MWS_SORT_DOWNLOADS" "downloads"
-				"#MWS_SORT_LIKES" "likes"
-				"#MWS_SORT_VIEWS" "views"
-				"#MWS_SORT_WEEKLY_SCORE" "weekly_score"
-				"#MWS_SORT_DAILY_SCORE" "daily_score"
-				"#MWS_SORT_BEST_MATCH" "best_match"
-				"#MWS_SORT_RANDOM" "random"
+				"#MOD_BROWSER_SORT_RECENTLY_UPDATED" "bumped_at"
+				"#MOD_BROWSER_SORT_PUBLISHED" "published_at"
+				"#MOD_BROWSER_SORT_DOWNLOADS" "downloads"
+				"#MOD_BROWSER_SORT_LIKES" "likes"
+				"#MOD_BROWSER_SORT_VIEWS" "views"
+				"#MOD_BROWSER_SORT_WEEKLY_SCORE" "weekly_score"
+				"#MOD_BROWSER_SORT_DAILY_SCORE" "daily_score"
+				"#MOD_BROWSER_SORT_BEST_MATCH" "best_match"
+				"#MOD_BROWSER_SORT_RANDOM" "random"
 			}
-			navUp MwsSearch
-			navLeft MwsSearch
-			navDown MwsFilter
+			navUp ModBrowserSearch
+			navLeft ModBrowserSearch
+			navDown ModBrowserFilter
 		}
 
-		MwsFilter
+		ModBrowserFilter
 		{
 			ControlName RuiButton
 			InheritProperties SwitchButton
@@ -97,220 +97,240 @@ resource/ui/menus/modworkshop.menu
 			labelText "#SHOW"
 			list
 			{
-				"#MWS_FILTER_ALL_MODS" "0"
-				"#MWS_FILTER_INSTALLED" "1"
-				"#MWS_FILTER_UPDATES" "2"
+				"#MOD_BROWSER_FILTER_ALL_MODS" "0"
+				"#MOD_BROWSER_FILTER_INSTALLED" "1"
+				"#MOD_BROWSER_FILTER_UPDATES" "2"
 			}
-			navUp MwsSort
-			navLeft MwsSort
+			navUp ModBrowserSort
+			navLeft ModBrowserSort
+			navDown ModBrowserSource
+		}
+
+		ModBrowserSource
+		{
+			ControlName RuiButton
+			InheritProperties SwitchButton
+			xpos 1178
+			ypos 912
+			wide 500
+			tall 36
+			labelText "#MOD_BROWSER_SOURCE"
+			list
+			{
+				"#MOD_BROWSER_SOURCE_ALL" "4"
+				"#MODS_SOURCE_MODWORKSHOP" "2"
+				"#MODS_SOURCE_THUNDERSTORE" "3"
+			}
+			navUp ModBrowserFilter
+			navLeft ModBrowserFilter
 			navDown CardButton5
 		}
 
 		Card0
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 0
 			xpos 80
 			ypos 190
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card1
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 1
 			xpos 258
 			ypos 190
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card2
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 2
 			xpos 436
 			ypos 190
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card3
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 3
 			xpos 614
 			ypos 190
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card4
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 4
 			xpos 792
 			ypos 190
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card5
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 5
 			xpos 970
 			ypos 190
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card6
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 6
 			xpos 80
 			ypos 389
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card7
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 7
 			xpos 258
 			ypos 389
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card8
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 8
 			xpos 436
 			ypos 389
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card9
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 9
 			xpos 614
 			ypos 389
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card10
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 10
 			xpos 792
 			ypos 389
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card11
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 11
 			xpos 970
 			ypos 389
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card12
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 12
 			xpos 80
 			ypos 588
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card13
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 13
 			xpos 258
 			ypos 588
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card14
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 14
 			xpos 436
 			ypos 588
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 
 		Card15
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 15
 			xpos 614
 			ypos 588
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card16
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 16
 			xpos 792
 			ypos 588
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 		Card17
 		{
 			ControlName CNestedPanel
-			classname MWSCard
+			classname ModBrowserCard
 			scriptID 17
 			xpos 970
 			ypos 588
 			wide 176
 			tall 196
-			controlSettingsFile "resource/ui/menus/panels/modworkshop_card.res"
+			controlSettingsFile "resource/ui/menus/panels/modbrowser_card.res"
 		}
 
 		CardButton0
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 0
 			xpos 80
 			ypos 190
@@ -318,7 +338,7 @@ resource/ui/menus/modworkshop.menu
 			tall 196
 			labelText ""
 			zpos 20
-			navUp MwsSort
+			navUp ModBrowserSort
 			navRight CardButton1
 			navDown CardButton6
 		}
@@ -326,7 +346,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 1
 			xpos 258
 			ypos 190
@@ -334,7 +354,7 @@ resource/ui/menus/modworkshop.menu
 			tall 196
 			labelText ""
 			zpos 20
-			navUp MwsSort
+			navUp ModBrowserSort
 			navLeft CardButton0
 			navRight CardButton2
 			navDown CardButton7
@@ -343,7 +363,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 2
 			xpos 436
 			ypos 190
@@ -351,7 +371,7 @@ resource/ui/menus/modworkshop.menu
 			tall 196
 			labelText ""
 			zpos 20
-			navUp MwsSort
+			navUp ModBrowserSort
 			navLeft CardButton1
 			navRight CardButton3
 			navDown CardButton8
@@ -360,7 +380,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 3
 			xpos 614
 			ypos 190
@@ -368,7 +388,7 @@ resource/ui/menus/modworkshop.menu
 			tall 196
 			labelText ""
 			zpos 20
-			navUp MwsFilter
+			navUp ModBrowserFilter
 			navLeft CardButton2
 			navRight CardButton4
 			navDown CardButton9
@@ -377,7 +397,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 4
 			xpos 792
 			ypos 190
@@ -385,7 +405,7 @@ resource/ui/menus/modworkshop.menu
 			tall 196
 			labelText ""
 			zpos 20
-			navUp MwsFilter
+			navUp ModBrowserFilter
 			navLeft CardButton3
 			navRight CardButton5
 			navDown CardButton10
@@ -394,7 +414,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 5
 			xpos 970
 			ypos 190
@@ -402,7 +422,7 @@ resource/ui/menus/modworkshop.menu
 			tall 196
 			labelText ""
 			zpos 20
-			navUp MwsFilter
+			navUp ModBrowserFilter
 			navLeft CardButton4
 			navRight DetailsPreviewFocus
 			navDown CardButton11
@@ -411,7 +431,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 6
 			xpos 80
 			ypos 389
@@ -427,7 +447,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 7
 			xpos 258
 			ypos 389
@@ -444,7 +464,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 8
 			xpos 436
 			ypos 389
@@ -461,7 +481,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 9
 			xpos 614
 			ypos 389
@@ -478,7 +498,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 10
 			xpos 792
 			ypos 389
@@ -495,7 +515,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 11
 			xpos 970
 			ypos 389
@@ -512,7 +532,7 @@ resource/ui/menus/modworkshop.menu
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 12
 			xpos 80
 			ypos 588
@@ -522,13 +542,13 @@ resource/ui/menus/modworkshop.menu
 			zpos 20
 			navUp CardButton6
 			navRight CardButton13
-			navDown MwsSort
+			navDown ModBrowserSort
 		}
 		CardButton13
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 13
 			xpos 258
 			ypos 588
@@ -539,13 +559,13 @@ resource/ui/menus/modworkshop.menu
 			navUp CardButton7
 			navLeft CardButton12
 			navRight CardButton14
-			navDown MwsSort
+			navDown ModBrowserSort
 		}
 		CardButton14
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 14
 			xpos 436
 			ypos 588
@@ -556,13 +576,13 @@ resource/ui/menus/modworkshop.menu
 			navUp CardButton8
 			navLeft CardButton13
 			navRight CardButton15
-			navDown MwsSort
+			navDown ModBrowserSort
 		}
 		CardButton15
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 15
 			xpos 614
 			ypos 588
@@ -573,13 +593,13 @@ resource/ui/menus/modworkshop.menu
 			navUp CardButton9
 			navLeft CardButton14
 			navRight CardButton16
-			navDown MwsFilter
+			navDown ModBrowserFilter
 		}
 		CardButton16
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 16
 			xpos 792
 			ypos 588
@@ -590,13 +610,13 @@ resource/ui/menus/modworkshop.menu
 			navUp CardButton10
 			navLeft CardButton15
 			navRight CardButton17
-			navDown MwsFilter
+			navDown ModBrowserFilter
 		}
 		CardButton17
 		{
 			ControlName RuiButton
 			InheritProperties RuiSmallButton
-			classname MWSCardButton
+			classname ModBrowserCardButton
 			scriptID 17
 			xpos 970
 			ypos 588
@@ -607,7 +627,7 @@ resource/ui/menus/modworkshop.menu
 			navUp CardButton11
 			navLeft CardButton16
 			navRight DetailsPreviewFocus
-			navDown MwsFilter
+			navDown ModBrowserFilter
 		}
 
 
@@ -618,7 +638,7 @@ resource/ui/menus/modworkshop.menu
 			ypos 510
 			wide 1067
 			tall 80
-			labelText "#MWS_LOADING"
+			labelText "#MOD_BROWSER_LOADING"
 			font Default_28
 			textAlignment center
 			fgcolor_override "210 220 230 255"
@@ -629,7 +649,7 @@ resource/ui/menus/modworkshop.menu
 		DetailsBackground
 		{
 			ControlName RuiPanel
-			classname MWSPreviewPane
+			classname ModBrowserPreviewPane
 			xpos 1178
 			ypos 190
 			wide 500
@@ -642,7 +662,7 @@ resource/ui/menus/modworkshop.menu
 		DetailsPreviewFocus
 		{
 			ControlName RuiButton
-			classname MWSPreviewPane
+			classname ModBrowserPreviewPane
 			xpos 1178
 			ypos 190
 			wide 500
@@ -651,7 +671,7 @@ resource/ui/menus/modworkshop.menu
 			visible 0
 			zpos 10
 			navLeft CardButton11
-			navDown MwsSearch
+			navDown ModBrowserSearch
 		}
 
 		PageLabel
@@ -661,7 +681,7 @@ resource/ui/menus/modworkshop.menu
 			ypos 811
 			wide 822
 			tall 26
-			labelText "#MWS_SCROLL_TO_BROWSE"
+			labelText "#MOD_BROWSER_SCROLL_TO_BROWSE"
 			font Default_18
 			textAlignment center
 			fgcolor_override "176 185 194 255"
@@ -671,7 +691,7 @@ resource/ui/menus/modworkshop.menu
 		DetailsImage
 		{
 			ControlName RuiPanel
-			classname MWSPreviewPane
+			classname ModBrowserPreviewPane
 			xpos 1218
 			ypos 238
 			wide 420
@@ -681,16 +701,29 @@ resource/ui/menus/modworkshop.menu
 			rui "ui/basic_image.rpak"
 			zpos 2
 		}
+		DetailsSourceBadge
+		{
+			ControlName RuiPanel
+			xpos 1228
+			ypos 464
+			wide 24
+			tall 24
+			visible 0
+			scaleImage 1
+			rui "ui/basic_image.rpak"
+			zpos 8
+		}
+
 		DetailsName
 		{
 			ControlName Label
-			classname MWSPreviewPane
+			classname ModBrowserPreviewPane
 			xpos 1198
 			ypos 506
 			wide 460
 			tall 30
 			visible 0
-			labelText "#MWS_SELECT_MOD"
+			labelText "#MOD_BROWSER_SELECT_MOD"
 			font Default_21
 			fgcolor_override "255 255 255 255"
 			zpos 2
@@ -698,7 +731,7 @@ resource/ui/menus/modworkshop.menu
 		DetailsAuthor
 		{
 			ControlName Label
-			classname MWSPreviewPane
+			classname ModBrowserPreviewPane
 			xpos 1198
 			ypos 536
 			wide 460
@@ -712,7 +745,7 @@ resource/ui/menus/modworkshop.menu
 		DetailsDescription
 		{
 			ControlName Label
-			classname MWSPreviewPane
+			classname ModBrowserPreviewPane
 			xpos 1198
 			ypos 560
 			wide 460
@@ -727,7 +760,7 @@ resource/ui/menus/modworkshop.menu
 		DetailsStatus
 		{
 			ControlName Label
-			classname MWSPreviewPane
+			classname ModBrowserPreviewPane
 			xpos 1198
 			ypos 680
 			wide 460
@@ -741,7 +774,7 @@ resource/ui/menus/modworkshop.menu
 		ProgressLabel
 		{
 			ControlName Label
-			classname MWSPreviewPane
+			classname ModBrowserPreviewPane
 			xpos 1198
 			ypos 704
 			wide 460
