@@ -745,7 +745,7 @@ void function DoNSButtonState()
 		// ComboButton_SetText( file.inviteFriendsButton, "#TOGGLE_PROGRESSION" )
 		Hud_SetVisible( file.inviteFriendsButton, false )
 
-		Hud_SetLocked( file.inboxButton, true )
+		Hud_SetLocked( file.inboxButton, false )
 		Hud_SetLocked( file.browseNetworkButton, true )
 		Hud_SetLocked( file.switchButton, true )
 		Hud_SetLocked( file.inviteFriendsToNetworkButton, true )
