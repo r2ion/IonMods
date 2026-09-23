@@ -204,7 +204,7 @@ void function ModDownloadRunning_Think()
 
 void function NSUICodeCallback_ConfirmDownloadMods( int modCount, string serverName )
 {
-	file.serverModCount = 1
+	file.serverModCount = modCount
 	file.serverModDownloadName = serverName
 	Signal( uiGlobal.signalDummy, "NSModsRequestConfirmation" )
 }
@@ -289,7 +289,8 @@ void function ShowModDownloadConfirmationDialog()
 		void function()
 		{
 			NSDecideModDownload( true )
-			ConnectionRunning_Think()
+			file.serverModCount = 0
+			thread ConnectionRunning_Think()
 		}
 	)
 	AddDialogButton(
