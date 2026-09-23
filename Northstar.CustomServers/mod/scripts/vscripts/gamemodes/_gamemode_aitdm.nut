@@ -146,6 +146,7 @@ void function OnPlaying()
 	// don't run spawning code if ains and nms aren't up to date
 	if ( GetAINScriptVersion() == AIN_REV && GetNodeCount() != 0 )
 	{
+		file.levels = [ file.levelSpectres, file.levelSpectres ]
 		thread SpawnIntroBatch_Threaded( TEAM_MILITIA )
 		thread SpawnIntroBatch_Threaded( TEAM_IMC )
 	}
@@ -228,8 +229,11 @@ void function HandleScoreEvent( entity victim, entity attacker, var damageInfo )
 // Spawner_Threaded is used to keep the match populated
 void function SpawnIntroBatch_Threaded( int team )
 {
+	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+	if ( GetGameState() != eGameState.Playing )
+		return
+
 	array<entity> dropPodNodes = GetEntArrayByClass_Expensive( "info_spawnpoint_droppod_start" )
-	array<entity> dropShipNodes = GetValidIntroDropShipSpawn( dropPodNodes )
 
 	array<entity> podNodes
 
@@ -257,7 +261,7 @@ void function SpawnIntroBatch_Threaded( int team )
 		// Get nodes close enough to team spawnpoint
 		foreach ( node in dropPodNodes )
 		{
-			if ( node.HasKey( "teamnum" ) && Distance2D( node.GetOrigin(), spawnPoint.GetOrigin() ) < 2000 )
+			if ( IsValid( spawnPoint ) && node.HasKey( "teamnum" ) && Distance2D( node.GetOrigin(), spawnPoint.GetOrigin() ) < 2000 )
 				podNodes.append( node )
 		}
 	}
@@ -269,6 +273,21 @@ void function SpawnIntroBatch_Threaded( int team )
 			if ( node.GetTeam() == team )
 				podNodes.append( node )
 		}
+	}
+
+	if ( podNodes.len() == 0 )
+	{
+		foreach ( entity point in SpawnPoints_GetDropPod() )
+		{
+			if ( IsSpawnpointValid( point, team, team ) )
+				podNodes.append( point )
+		}
+	}
+
+	if ( podNodes.len() == 0 )
+	{
+		thread Spawner_Threaded( team )
+		return
 	}
 
 	shipNodes = GetValidIntroDropShipSpawn( podNodes )
@@ -328,9 +347,7 @@ void function Spawner_Threaded( int team )
 	int index = team == TEAM_MILITIA ? 0 : 1
 	float frontlineTickNext = Time()
 
-	file.levels = [ file.levelSpectres, file.levelSpectres ] // due we added settings, should init levels here!
-
-	while ( true )
+	while ( GetGameState() == eGameState.Playing )
 	{
 		// keep frontline refreshed off the main spawn loop
 		#if SERVER
@@ -372,7 +389,7 @@ void function Spawner_Threaded( int team )
 			if ( !( team in file.reaperRespawnTimes ) )
 				file.reaperRespawnTimes[ team ] <- 0.0
 
-			if ( reaperCount < file.reapersPerTeam && Time() > file.reaperRespawnTimes[ team ] )
+			if ( validPoints.len() != 0 && reaperCount < file.reapersPerTeam && Time() > file.reaperRespawnTimes[ team ] )
 			{
 				entity node = validPoints[ GetSpawnPointIndex( validPoints, team ) ]
 				waitthread AiGameModes_SpawnReaper( node.GetOrigin(), node.GetAngles(), team, "npc_super_spectre_aitdm", ReaperHandler )
@@ -429,7 +446,14 @@ void function Spawner_Threaded( int team )
 			if ( validPoints.len() == 0 )
 				validPoints = points
 
-			entity node = validPoints[ GetSpawnPointIndex( validPoints, team ) ]
+			int spawnIndex = GetSpawnPointIndex( validPoints, team )
+			if ( spawnIndex == -1 )
+			{
+				wait 1.0
+				continue
+			}
+
+			entity node = validPoints[ spawnIndex ]
 			waitthread AiGameModes_SpawnDropPod( node.GetOrigin(), node.GetAngles(), team, ent, SquadHandler )
 		}
 
@@ -438,6 +462,10 @@ void function Spawner_Threaded( int team )
 }
 void function Aitdm_SpawnDropShip( entity node, int team )
 {
+	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+	if ( GetGameState() != eGameState.Playing )
+		return
+
 	thread AiGameModes_SpawnDropShip( node.GetOrigin(), node.GetAngles(), team, 4, SquadHandler )
 	wait 20
 }
@@ -483,6 +511,9 @@ void function Escalate( int team )
 // These zones should swap based on which team is dominating where
 int function GetSpawnPointIndex( array<entity> points, int team )
 {
+	if ( points.len() == 0 )
+		return -1
+
 	#if SERVER
 		if ( Flag( "FrontlineInitiated" ) )
 		{

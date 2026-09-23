@@ -3,6 +3,7 @@ global function DropPodFireteam_Init
 global function InitFireteamDropPod
 global function ActivateFireteamDropPod
 global function DropPodActiveThink
+global function CleanupFireteamPod
 
 global function CreateDropPodDoor
 

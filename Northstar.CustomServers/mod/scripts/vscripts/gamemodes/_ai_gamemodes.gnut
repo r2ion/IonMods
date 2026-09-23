@@ -46,6 +46,8 @@ void function AiGameModes_SetNPCWeapons( string npcClass, array<string> weapons 
 
 void function AiGameModes_SpawnDropShip( vector pos, vector rot, int team, int count, void functionref( array<entity> guys ) squadHandler = null )
 {
+	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+
 	string squadName = MakeSquadName( team, UniqueString( "" ) )
 
 	CallinData drop
@@ -57,11 +59,19 @@ void function AiGameModes_SpawnDropShip( vector pos, vector rot, int team, int c
 	SetDropTableSpawnFuncs( drop, CreateSoldier, count )
 	SetCallinStyle( drop, eDropStyle.ZIPLINE_NPC )
 
-	thread RunDropshipDropoff( drop )
+	thread void function() : ( drop )
+	{
+		svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+		RunDropshipDropoff( drop )
+	}()
+	
+	if ( !drop.success )
+		return
 
 	WaitSignal( drop, "OnDropoff" )
 
 	array<entity> guys = GetNPCArrayBySquad( squadName )
+	ArrayRemoveDead( guys )
 
 	foreach ( guy in guys )
 	{
@@ -75,14 +85,23 @@ void function AiGameModes_SpawnDropShip( vector pos, vector rot, int team, int c
 
 void function AiGameModes_SpawnDropPod( vector pos, vector rot, int team, string content /* ( ͡° ͜ʖ ͡°) */ , void functionref( array<entity> guys ) squadHandler = null, int flags = 0 )
 {
+	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+
 	entity pod = CreateDropPod( pos, < 0, 0, 0 > )
 
 	InitFireteamDropPod( pod, flags )
+	array<entity> guys
+	OnThreadEnd(
+		void function() : ( pod, guys )
+		{
+			if ( IsValid( pod ) && guys.len() == 0 )
+				CleanupFireteamPod( pod )
+		}
+	)
 
 	waitthread LaunchAnimDropPod( pod, "pod_testpath", pos, rot )
 
 	string squadName = MakeSquadName( team, UniqueString( "" ) )
-	array<entity> guys
 	for ( int i = 0; i < 4; i++ )
 	{
 		entity npc = CreateNPC( content, team, pos, < 0, 0, 0 > )
@@ -107,6 +126,8 @@ void function AiGameModes_SpawnDropPod( vector pos, vector rot, int team, string
 const float REAPER_WARPFALL_DELAY = 4.7 // same as fd does
 void function AiGameModes_SpawnReaper( vector pos, vector rot, int team, string aiSettings = "", void functionref( entity reaper ) reaperHandler = null )
 {
+	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+
 	float reaperLandTime = REAPER_WARPFALL_DELAY + 1.2 // reaper takes ~1.2s to warpfall
 	thread HotDrop_Spawnpoint( pos, team, reaperLandTime, false, damagedef_reaper_fall )
 
@@ -138,6 +159,8 @@ void function AiGameModes_SpawnReaper( vector pos, vector rot, int team, string 
 // copied from cl_replacement_titan_hud.gnut
 void function HotDrop_Spawnpoint( vector origin, int team, float impactTime, bool hasFriendlyWarning = false, int damageDef = -1 )
 {
+	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
+
 	array<entity> targetEffects = []
 	vector surfaceNormal = < 0, 0, 1 >
 
@@ -169,16 +192,20 @@ void function HotDrop_Spawnpoint( vector origin, int team, float impactTime, boo
 		AI_CreateDangerousArea_DamageDef( damageDef, damageAreaInfo, team, true, true )
 	}
 
-	wait impactTime
+	OnThreadEnd(
+		void function() : ( targetEffects, damageAreaInfo )
+		{
+			foreach ( entity targetEffect in targetEffects )
+			{
+				if ( IsValid( targetEffect ) )
+					EffectStop( targetEffect )
+			}
+			if ( IsValid( damageAreaInfo ) )
+				damageAreaInfo.Destroy()
+		}
+	)
 
-	// clean up
-	foreach ( entity targetEffect in targetEffects )
-	{
-		if ( IsValid( targetEffect ) )
-			EffectStop( targetEffect )
-	}
-	if ( IsValid( damageAreaInfo ) )
-		damageAreaInfo.Destroy()
+	wait impactTime
 }
 
 // including aisettings stuff specifically for at bounty titans

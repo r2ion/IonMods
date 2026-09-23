@@ -647,6 +647,25 @@ function RunDropshipDropoff( CallinData Table )
 		thread FindDropshipZiplineNodes( dropTable, flightPath, ref.GetOrigin(), ref.GetAngles(), side, ignoreCollision, true )
 	}
 
+	local dropshipSound = GetTeamDropshipSound( team, animation )
+	if ( Table.customSnd != "" )
+		dropshipSound = Table.customSnd
+
+	OnThreadEnd(
+		function() : ( ref, Table, dropshipSound )
+		{
+			if ( IsValid( ref ) )
+				ref.Destroy()
+			entity dropship = Table.dropship
+			if ( IsValid( dropship ) )
+				StopSoundOnEntity( dropship, dropshipSound )
+			if ( IsAlive( dropship ) )
+				dropship.Destroy()
+
+			Signal( Table, "OnDropoff", { guys = null } )
+		}
+	)
+
 	asset model = GetTeamDropshipModel( team )
 	waitthread WarpinEffect( model, animation, ref.GetOrigin(), ref.GetAngles() )
 	entity dropship = CreateDropship( team, ref.GetOrigin(), ref.GetAngles() )
@@ -672,25 +691,6 @@ function RunDropshipDropoff( CallinData Table )
 		if ( owner.IsPlayer() )
 			dropship.SetBossPlayer( owner )
 	}
-
-	local dropshipSound = GetTeamDropshipSound( team, animation )
-	if ( Table.customSnd != "" )
-		dropshipSound = Table.customSnd
-
-	OnThreadEnd(
-		function() : ( dropship, ref, Table, dropshipSound )
-		{
-			ref.Destroy()
-			if ( IsValid( dropship ) )
-				StopSoundOnEntity( dropship, dropshipSound )
-			if ( IsAlive( dropship ) )
-			{
-				dropship.Destroy()
-			}
-
-			Signal( Table, "OnDropoff", { guys = null } )
-		}
-	)
 
 	array<entity> guys
 	if ( !wasPlayerOwned || IsValidPlayer( owner ) )

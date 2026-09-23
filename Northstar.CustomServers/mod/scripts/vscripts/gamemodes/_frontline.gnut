@@ -128,9 +128,9 @@ void function CalculateFrontline()
 		if ( ( militiaCenter.LengthSqr() == 0.0 || imcCenter.LengthSqr() == 0.0 ) && file.currentFrontline != null )
 		{
 			vector anchor = Vector( file.currentFrontline.frontlineCenter.x, file.currentFrontline.frontlineCenter.y, file.currentFrontline.frontlineCenter.z )
-			vector dir = Vector( file.currentFrontline.combatDir.x, file.currentFrontline.combatDir.y, file.currentFrontline.combatDir.z )
-			imcCenter = Vector( anchor.x + dir.x * 256.0, anchor.y + dir.y * 256.0, anchor.z + dir.z * 256.0 )
-			militiaCenter = Vector( anchor.x - dir.x * 256.0, anchor.y - dir.y * 256.0, anchor.z - dir.z * 256.0 )
+			vector dir = expect vector( GetTeamCombatDir( file.currentFrontline, TEAM_IMC ) )
+			imcCenter = anchor - dir * 256.0
+			militiaCenter = anchor + dir * 256.0
 		}
 
 		file.frontline.friendlyCenter = imcCenter
@@ -204,12 +204,14 @@ function InitFrontLine()
 		return false
 
 	#if SERVER
-		AddDeathCallback( "npc_soldier", FrontlineDeathNPC )
-		AddDeathCallback( "npc_spectre", FrontlineDeathNPC )
-		AddDeathCallback( "player", FrontlineDeath )
-		AddDeathCallback( "npc_titan", FrontlineDeath )
-
 		local spawnpoints = SpawnPoints_GetDropPodStart( TEAM_ANY )
+		if ( spawnpoints.len() == 0 )
+			spawnpoints = SpawnPoints_GetPilotStart( TEAM_ANY )
+		if ( spawnpoints.len() == 0 )
+			spawnpoints = SpawnPoints_GetTitanStart( TEAM_ANY )
+		if ( spawnpoints.len() == 0 )
+			return false
+
 		local mapCenter = GetMapCenter( spawnpoints )
 
 		local oldDist = 100000 * 100000
@@ -237,6 +239,11 @@ function InitFrontLine()
 			printl( "[frontline] disabling frontline: no valid groups for map" )
 			return false
 		}
+
+		AddDeathCallback( "npc_soldier", FrontlineDeathNPC )
+		AddDeathCallback( "npc_spectre", FrontlineDeathNPC )
+		AddDeathCallback( "player", FrontlineDeath )
+		AddDeathCallback( "npc_titan", FrontlineDeath )
 	#endif
 
 	return true
