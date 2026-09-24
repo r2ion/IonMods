@@ -46,8 +46,6 @@ void function AiGameModes_SetNPCWeapons( string npcClass, array<string> weapons 
 
 void function AiGameModes_SpawnDropShip( vector pos, vector rot, int team, int count, void functionref( array<entity> guys ) squadHandler = null )
 {
-	svGlobal.levelEnt.EndSignal( "GameStateChanged" )
-
 	string squadName = MakeSquadName( team, UniqueString( "" ) )
 
 	CallinData drop
@@ -59,16 +57,10 @@ void function AiGameModes_SpawnDropShip( vector pos, vector rot, int team, int c
 	SetDropTableSpawnFuncs( drop, CreateSoldier, count )
 	SetCallinStyle( drop, eDropStyle.ZIPLINE_NPC )
 
-	thread void function() : ( drop )
-	{
-		svGlobal.levelEnt.EndSignal( "GameStateChanged" )
-		RunDropshipDropoff( drop )
-	}()
+	waitthread RunDropshipDropoff( drop )
 	
 	if ( !drop.success )
 		return
-
-	WaitSignal( drop, "OnDropoff" )
 
 	array<entity> guys = GetNPCArrayBySquad( squadName )
 	ArrayRemoveDead( guys )
@@ -79,7 +71,7 @@ void function AiGameModes_SpawnDropShip( vector pos, vector rot, int team, int c
 		guy.EnableNPCFlag( NPC_ALLOW_PATROL | NPC_ALLOW_INVESTIGATE | NPC_ALLOW_HAND_SIGNALS | NPC_ALLOW_FLEE )
 	}
 
-	if ( squadHandler != null )
+	if ( squadHandler != null && GetGameState() == eGameState.Playing )
 		thread squadHandler( guys )
 }
 

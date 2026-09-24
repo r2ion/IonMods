@@ -573,6 +573,8 @@ function RunDropshipDropoff( CallinData Table )
 	}
 
 	SpawnPointFP spawnPoint
+	DropTable dropTable
+	bool validSpawn = false
 	array<string> anims = GetRandomDropshipDropoffAnims()
 
 	// Override anim, level scripter takes responsibility for it working in this location or not
@@ -605,11 +607,29 @@ function RunDropshipDropoff( CallinData Table )
 
 		spawnPoint = GetSpawnPointForStyle( flightPath, Table )
 
-		if ( spawnPoint.valid )
-			break
+		if ( !spawnPoint.valid )
+			continue
+
+		if ( Table.dropTable.valid )
+		{
+			dropTable = Table.dropTable
+		}
+		else
+		{
+			vector dropOrigin = Table.forcedPosition ? Table.origin : spawnPoint.origin
+			vector dropAngles = Table.forcedPosition ? < 0, Table.yaw, 0 > : spawnPoint.angles
+			// The deploy event cannot wait for an unfinished landing-node search.
+			waitthread FindDropshipZiplineNodes( dropTable, flightPath, dropOrigin, dropAngles, side, true, true )
+		}
+
+		if ( dropTable.nodes.len() == 0 )
+			continue
+
+		validSpawn = true
+		break
 	}
 
-	if ( !spawnPoint.valid )
+	if ( !validSpawn )
 	{
 		printt( "Couldn't find good spawn location for dropship" )
 		return
@@ -634,18 +654,6 @@ function RunDropshipDropoff( CallinData Table )
 		animation = FlyersAttackDropship( ref, animation )
 
 	Assert( IsNewThread(), "Must be threaded off" )
-
-	DropTable dropTable
-
-	if ( Table.dropTable.valid )
-	{
-		dropTable = Table.dropTable
-	}
-	else
-	{
-		bool ignoreCollision = true // = style == eDropStyle.FORCED
-		thread FindDropshipZiplineNodes( dropTable, flightPath, ref.GetOrigin(), ref.GetAngles(), side, ignoreCollision, true )
-	}
 
 	local dropshipSound = GetTeamDropshipSound( team, animation )
 	if ( Table.customSnd != "" )
