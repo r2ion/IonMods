@@ -1574,6 +1574,7 @@ bool function IsFDMode( string modeName )
 		case "fd_hard":
 		case "fd_master":
 		case "fd_insane":
+		case "fd_livefire":
 			isFD = true
 	}
 

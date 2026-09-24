@@ -26,6 +26,7 @@ struct
 		scorelimit = { min = 1.0, max = 5000.0, step = 5.0 },
 		roundscorelimit = { min = 0.0, max = 200.0, step = 1.0 },
 		timelimit = { min = 1.0, max = 500.0, step = 1.0 },
+		fd_wave_buy_time = { min = 0.0, max = 300.0, step = 5.0 },
 		respawnprotection = { min = 0.0, max = 10.0, step = 0.5 },
 		custom_air_accel_pilot = { min = 0.0, max = 10000.0, step = 1.0 },
 		player_bleedout_firstAidTimeSelf = { min = -1.0, max = 30.0, step = 0.1 },

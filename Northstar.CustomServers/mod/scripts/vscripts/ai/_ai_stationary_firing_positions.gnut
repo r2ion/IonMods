@@ -138,7 +138,7 @@ void function ValidateAndFinalizePendingStationaryPositions()
 	}
 }
 
-StationaryAIPosition function GetClosestAvailableStationaryPosition( vector origin, float maxDist, int type )
+StationaryAIPosition ornull function GetClosestAvailableStationaryPosition( vector origin, float maxDist, int type )
 {
 	array<StationaryAIPosition> resultArray = []
 	float maxDistSqr = maxDist * maxDist
@@ -159,11 +159,14 @@ StationaryAIPosition function GetClosestAvailableStationaryPosition( vector orig
 		freePositions.append( result )
 	}
 
-	// Tell us if all spots for a given AI type are taken.
-	Assert(
-		freePositions.len() > 0,
-		"Could not find free mortar positions for type " + type + ", all positions are currently in use. Add more AddStationaryTitanPosition to the map."
-	)
+	// FD callers wait for a claimed position to become available.
+	if ( GameRules_GetGameMode() != FD )
+	{
+		Assert(
+			freePositions.len() > 0,
+			"Could not find free mortar positions for type " + type + ", all positions are currently in use. Add more AddStationaryTitanPosition to the map."
+		)
+	}
 
 	foreach ( result in freePositions )
 	{
@@ -181,7 +184,7 @@ StationaryAIPosition function GetClosestAvailableStationaryPosition( vector orig
 		return position
 	}
 
-	unreachable
+	return null
 }
 
 StationaryAIPosition function GetRandomStationaryPosition( vector origin, float maxDist, int type )

@@ -15,6 +15,9 @@ void function CodeCallback_MapInit()
 {
 	// Battery spawns (in LTS/Free Agents) are in old locations, so we move them to the proper locations
 	AddSpawnCallbackEditorClass( "script_ref", "script_power_up_other", FixBatterySpawns )
+
+	if ( GameRules_GetGameMode() == FD )
+		initFrontierDefenseData()
 }
 
 void function FixBatterySpawns( entity spawn )

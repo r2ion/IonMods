@@ -27,12 +27,61 @@
 			"DefaultValue": ""
 		},
 		{
+			"Name": "ns_fd_elite_minimap_icontype",
+			"DefaultValue": "0",
+			"Flags": "ARCHIVE_PLAYERPROFILE"
+		},
+		{
+			"Name": "ns_fd_elite_overhead_icontype",
+			"DefaultValue": "1",
+			"Flags": "ARCHIVE_PLAYERPROFILE"
+		},
+		{
+			"Name": "ns_fd_min_numplayers_to_start",
+			"DefaultValue": "1"
+		},
+		{
+			"Name": "ns_fd_infantry_at_weapons",
+			"DefaultValue": ""
+		},
+		{
+			"Name": "ns_fd_grunt_primary_weapon",
+			"DefaultValue": ""
+		},
+		{
+			"Name": "ns_fd_grunt_grenade",
+			"DefaultValue": ""
+		},
+		{
+			"Name": "ns_fd_spectre_primary_weapon",
+			"DefaultValue": ""
+		},
+		{
+			"Name": "ns_fd_disable_respawn_dropship",
+			"DefaultValue": "0"
+		},
+		{
+			"Name": "ns_fd_constant_ai_spawn",
+			"DefaultValue": "0"
+		},
+		{
 			"Name": "ns_show_event_models",
 			"DefaultValue": "1",
 			"Flags": "ARCHIVE_PLAYERPROFILE"
 		}
 	],
 	"Scripts": [
+		{
+			"Path": "ai/_ai_elite_titans.nut",
+			"RunOn": "SERVER && MP"
+		},
+		{
+			"Path": "ui/ns_gamemode_fd.nut",
+			"RunOn": "UI",
+			"UICallback": {
+				"Before": "EliteIconSettings_Init"
+			}
+		},
 		{
 			"Path": "sh_northstar_custom_precache.gnut",
 			"RunOn": "SERVER && MP",

@@ -48,7 +48,7 @@ void function BurnMeter_Init()
 	BurnReward_GetByRef( "burnmeter_maphack" ).rewardAvailableCallback = PlayerUsesMaphackBurncard
 	BurnReward_GetByRef( "burnmeter_phase_rewind" ).rewardAvailableCallback = PlayerUsesPhaseRewindBurncard
 
-	// these ones aren't so important, they're either for fd ( unsupported rn ) or unused
+	// FD store rewards and additional burncards.
 	BurnReward_GetByRef( "burnmeter_harvester_shield" ).rewardAvailableCallback = PlayerUsesHarvesterShieldBurncard
 	BurnReward_GetByRef( "burnmeter_amped_weapons_permanent" ).rewardAvailableCallback = PlayerUsesPermanentAmpedWeaponsBurncard
 	BurnReward_GetByRef( "burnmeter_instant_battery" ).rewardAvailableCallback = Burnmeter_AmpedBattery
@@ -67,6 +67,7 @@ void function BurnMeter_Init()
 	AddCallback_OnClientConnected( InitBurncardsForLateJoiner )
 
 	AddCallback_OnPlayerRespawned( StartPhaseRewindLifetime )
+	AddCallback_OnPlayerRespawned( InitialisePermenantAmpedWeaponsForPlayer )
 	AddCallback_OnTitanBecomesPilot( RemoveAmpedWeaponsForTitanPilot )
 
 	// necessary signals
@@ -161,9 +162,12 @@ string function GetSelectedBurncardRefFromWeaponOrPlayer( entity weapon, entity 
 					return "burnmeter_hard_cover"
 
 				case "mp_ability_turretweapon":
-					// turret has 2 burncards, antititan and antipilot
-					if ( weapon.HasMod( "burnmeter_at_turret_weapon" ) || weapon.HasMod( "burnmeter_at_turret_weapon_inf" ) )
+					if ( weapon.HasMod( "burnmeter_at_turret_weapon" ) )
 						return "burnmeter_at_turret_weapon"
+					else if ( weapon.HasMod( "burnmeter_at_turret_weapon_inf" ) )
+						return "burnmeter_at_turret_weapon_infinite"
+					else if ( weapon.HasMod( "burnmeter_ap_turret_weapon_inf" ) )
+						return "burnmeter_ap_turret_weapon_infinite"
 					else
 						return "burnmeter_ap_turret_weapon"
 					// note: cloak and stim both have burn_card_weapon_mod mods, but they aren't used and
@@ -347,6 +351,9 @@ void function PlayerUsesAmpedWeaponsBurncardThreaded( entity player )
 
 void function RemoveAmpedWeaponsForTitanPilot( entity player, entity titan )
 {
+	if ( "hasPermenantAmpedWeapons" in player.s && player.s.hasPermenantAmpedWeapons )
+		return
+
 	foreach ( entity weapon in player.GetMainWeapons() )
 		foreach ( string mod in GetWeaponBurnMods( weapon.GetWeaponClassName() ) )
 			weapon.RemoveMod( mod )
@@ -584,10 +591,17 @@ void function PlayerUsesNukeBurncardThreaded( entity player )
 	thread TitanEjectPlayer( titan, true )
 }
 
+void function InitialisePermenantAmpedWeaponsForPlayer( entity player )
+{
+	player.s.hasPermenantAmpedWeapons <- false
+}
+
 void function PlayerUsesPermanentAmpedWeaponsBurncard( entity player )
 {
+	player.s.hasPermenantAmpedWeapons = true
+
 	array<entity> weapons = player.GetMainWeapons()
-	// weapons.extend( player.GetOffhandWeapons() ) // idk? unsure of vanilla behaviour here
+	weapons.extend( player.GetOffhandWeapons() )
 	foreach ( entity weapon in weapons )
 	{
 		weapon.RemoveMod( "silencer" ) // both this and the burnmod will override firing fx, if a second one overrides this we crash

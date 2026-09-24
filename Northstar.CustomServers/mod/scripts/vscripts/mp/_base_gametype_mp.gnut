@@ -201,7 +201,9 @@ void function CodeCallback_OnClientConnectionCompleted( entity player )
 	// handle spawning late joiners
 	if ( GetGameState() == eGameState.Playing )
 	{
-		if ( RespawnsEnabled() )
+		if ( SpectatePlayerDuringPickLoadout() )
+			thread SpectateTTSMenuPlayer( player )
+		else if ( RespawnsEnabled() )
 		{
 			// likely temp, deffo needs some work
 			if ( Riff_SpawnAsTitan() == 1 ) // spawn as titan
@@ -212,6 +214,30 @@ void function CodeCallback_OnClientConnectionCompleted( entity player )
 		else
 			thread PlayerBecomesSpectator( player )
 	}
+}
+
+void function SpectateTTSMenuPlayer( entity player )
+{
+	player.EndSignal( "OnDestroy" )
+	OnThreadEnd(
+		function() : ( player )
+		{
+			if ( !IsValid( player ) )
+				return
+
+			if ( !IsEliminationBased() )
+			{
+				if ( ShouldIntroSpawnAsTitan() && Riff_TitanAvailability() != eTitanAvailability.Never || svGlobal.forceSpawnAsTitan )
+					thread RespawnAsTitan( player )
+				else
+					RespawnAsPilot( player )
+			}
+			else
+				InitialisePrivateMatchSpectatorPlayer( player )
+		}
+	)
+
+	player.WaitSignal( "StopSendingTTSMenuCommand" )
 }
 
 void function CodeCallback_OnClientDisconnected( entity player, string reason )

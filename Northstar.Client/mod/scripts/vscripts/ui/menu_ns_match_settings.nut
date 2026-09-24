@@ -230,6 +230,7 @@ void function BuildModesArray()
 			case "fd_hard":
 			case "fd_master":
 			case "fd_insane":
+			case "fd_livefire":
 				entry.category = eModeMenuModeCategory.PVE
 				break
 
@@ -551,9 +552,6 @@ void function UpdateVisibleModes()
 			Hud_SetVisible( menuline, false )
 			Hud_SetEnabled( button, true )
 			SetButtonRuiText( button, mode )
-
-			if ( blockedModes.contains( file.sortedModes[ modeIndex ] ) && !NSIsVanilla() )
-				Hud_SetLocked( button, true )
 
 			if ( PrivateMatch_IsValidMapModeCombo( PrivateMatch_GetSelectedMap(), mode ) )
 			{

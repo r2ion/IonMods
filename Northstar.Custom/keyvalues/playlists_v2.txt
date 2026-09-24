@@ -325,6 +325,32 @@ playlists
 				sns_melee_kill_value 5 [$NORTHSTAR]
 			}
 		}
+		fd_livefire
+		{
+			inherit defaults
+			vars
+			{
+				name #PL_fd_lf
+				lobbytitle #PL_fd_lf_lobby
+				description #PL_fd_lf_desc
+				hint #PL_fd_lf_desc
+				abbreviation #PL_fd_lf_abbr
+				visible 0
+			}
+			gamemodes
+			{
+				fd_normal
+				{
+					maps
+					{
+						mp_lf_deck 1
+						mp_lf_meadow 1
+						mp_lf_township 1
+						mp_lf_uma 1
+					}
+				}
+			}
+		}
 		gg
 		{
 			inherit defaults

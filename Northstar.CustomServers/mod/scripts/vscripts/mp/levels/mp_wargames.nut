@@ -27,9 +27,14 @@ void function CodeCallback_MapInit()
 	AddSpawnCallback( "info_spawnpoint_marvin", AddMarvinSpawner )
 	AddCallback_GameStateEnter( eGameState.Prematch, SpawnMarvinsForRound )
 
-	// currently disabled until finished: intro
-	if ( !IsFFAGame() )
-		ClassicMP_SetLevelIntro( WargamesIntroSetup, 20.0 )
+	if ( GameRules_GetGameMode() == FD )
+		initFrontierDefenseData()
+	else
+	{
+		// currently disabled until finished: intro
+		if ( !IsFFAGame() )
+			ClassicMP_SetLevelIntro( WargamesIntroSetup, 20.0 )
+	}
 }
 
 void function AddEvacNodes()

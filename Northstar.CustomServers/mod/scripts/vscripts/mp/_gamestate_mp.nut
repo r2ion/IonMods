@@ -7,6 +7,8 @@ global function WaittillGameStateOrHigher
 global function AddCallback_OnRoundEndCleanup
 
 global function SetShouldUsePickLoadoutScreen
+global function SetShouldSpectateInPickLoadoutScreen
+global function SpectatePlayerDuringPickLoadout
 global function SetSwitchSidesBased
 global function SetSuddenDeathBased
 global function SetTimerBased
@@ -18,6 +20,7 @@ global function ShouldTryUseProjectileReplay
 global function SetWinner
 global function SetTimeoutWinnerDecisionFunc
 global function AddTeamScore
+global function AddTeamRoundScoreNoStateChange
 global function GetWinningTeamWithFFASupport
 
 global function GameState_GetTimeLimitOverride
@@ -30,6 +33,7 @@ struct
 {
 	// used for togglable parts of gamestate
 	bool usePickLoadoutScreen
+	bool spectateInPickLoadoutScreen = false
 	bool switchSidesBased
 	bool suddenDeathBased
 	bool timerBased = true
@@ -179,7 +183,25 @@ void function AddTeamScore( int team, int amount )
 		SetGameState( eGameState.SwitchingSides )
 }
 
-void function SetWinner( int team, string winningReason = "", string losingReason = "" )
+void function AddTeamRoundScoreNoStateChange( int team, int amount = 1 )
+{
+	int scoreLimit = GameMode_GetScoreLimit( GAMETYPE )
+	int score = GameRules_GetTeamScore( team )
+	if ( IsRoundBased() )
+	{
+		scoreLimit = GameMode_GetRoundScoreLimit( GAMETYPE )
+		score = GameRules_GetTeamScore2( team )
+	}
+
+	int newScore = score + amount
+	if ( newScore > scoreLimit && !GameScore_AllowPointsOverLimit() )
+		newScore = scoreLimit
+
+	GameRules_SetTeamScore( team, newScore )
+	GameRules_SetTeamScore2( team, newScore )
+}
+
+void function SetWinner( int team, string winningReason = "", string losingReason = "", bool addTeamScore = true )
 {
 	if ( !GetConVarBool( "mp_enablematchending" ) )
 		return
@@ -203,7 +225,7 @@ void function SetWinner( int team, string winningReason = "", string losingReaso
 	{
 		if ( IsRoundBased() )
 		{
-			if ( team != TEAM_UNASSIGNED )
+			if ( team != TEAM_UNASSIGNED && addTeamScore )
 			{
 				GameRules_SetTeamScore( team, GameRules_GetTeamScore( team ) + 1 )
 				GameRules_SetTeamScore2( team, GameRules_GetTeamScore2( team ) + 1 )
@@ -240,6 +262,16 @@ void function AddCallback_OnRoundEndCleanup( void functionref() callback )
 void function SetShouldUsePickLoadoutScreen( bool shouldUse )
 {
 	file.usePickLoadoutScreen = shouldUse
+}
+
+void function SetShouldSpectateInPickLoadoutScreen( bool shouldSpectate )
+{
+	file.spectateInPickLoadoutScreen = shouldSpectate
+}
+
+bool function SpectatePlayerDuringPickLoadout()
+{
+	return file.usePickLoadoutScreen && file.spectateInPickLoadoutScreen
 }
 
 void function SetSwitchSidesBased( bool switchSides )
@@ -557,6 +589,10 @@ void function GameStateEnter_WinnerDetermined_Threaded()
 		foreach ( entity player in GetPlayerArray() )
 			player.UnfreezeControlsOnServer()
 	}
+
+	// Allow player/titan death callbacks to finish before recreating the round.
+	if ( IsRoundBased() )
+		wait CLEAR_PLAYERS_BUFFER
 
 	if ( IsRoundBased() )
 	{
@@ -952,6 +988,12 @@ void function CleanUpEntitiesForRoundEnd()
 
 	foreach ( entity player in GetPlayerArray() )
 	{
+		if ( IsPrivateMatchSpectator( player ) )
+			continue
+
+		player.ClearInvulnerable()
+		player.SetNoTarget( false )
+		player.ClearParent()
 		ClearTitanAvailable( player )
 		PROTO_CleanupTrackedProjectiles( player )
 		player.SetPlayerNetInt( "batteryCount", 0 )
@@ -963,6 +1005,9 @@ void function CleanUpEntitiesForRoundEnd()
 	{
 		if ( !IsValid( npc ) || !IsAlive( npc ) )
 			continue
+		if ( npc.e.fd_roundDeployed != -1 )
+			continue // The FD callback preserves and repairs turrets from earlier waves.
+
 		// kill rather than destroy, as destroying will cause issues with children which is an issue especially for dropships and titans
 		npc.Die( svGlobal.worldspawn, svGlobal.worldspawn, { damageSourceId = eDamageSourceId.round_end } )
 	}
