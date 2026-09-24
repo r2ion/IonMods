@@ -191,8 +191,10 @@ void function SpawnPlayerIntoDropship( entity player, int playerDropshipIndex, e
 		{
 			if ( IsValid( player ) )
 			{
-				player.ClearParent()
 				ClearPlayerAnimViewEntity( player )
+				player.ClearParent()
+				player.Anim_Stop()
+				player.SetGroundEntity( null )
 			}
 			if ( IsAlive( playerDropship ) )
 			{
@@ -201,6 +203,9 @@ void function SpawnPlayerIntoDropship( entity player, int playerDropshipIndex, e
 				else
 					file.imcDropships[ playerDropship ][ playerDropshipIndex ] = null
 			}
+
+			if ( IsAlive( player ) )
+				thread PlayerJumpsFromDropship( player )
 		}
 	)
 
@@ -232,6 +237,8 @@ void function SpawnPlayerIntoDropship( entity player, int playerDropshipIndex, e
 	jumpSequence.firstPersonAnim = DROPSHIP_JUMP_ANIMS_POV[ playerDropshipIndex ]
 	jumpSequence.thirdPersonAnim = DROPSHIP_JUMP_ANIMS[ playerDropshipIndex ]
 	jumpSequence.attachment = "ORIGIN"
+	jumpSequence.blendTime = 0.0
+	jumpSequence.hideProxy = true
 	jumpSequence.viewConeFunction = ViewConeFree
 	jumpSequence.setInitialTime = max( 0.0, Time() - ( file.introStartTime + 11.0 ) ) // pretty sure you should do this with GetScriptedAnimEventCycleFrac?
 	// idk unsure how to use that, all i know is getsequenceduration > the length it actually should be
@@ -242,8 +249,6 @@ void function SpawnPlayerIntoDropship( entity player, int playerDropshipIndex, e
 	#endif
 
 	waitthread FirstPersonSequence( jumpSequence, player, playerDropship )
-
-	thread PlayerJumpsFromDropship( player )
 }
 
 void function PlayerJumpsFromDropship( entity player )
@@ -265,9 +270,6 @@ void function PlayerJumpsFromDropship( entity player )
 		}
 	)
 
-	// wait for player to hit the ground
-	player.ClearParent()
-	WaitFrame()
 	player.SetVelocity( < 0, 0, -100 > ) // Toss players a bit down so it makes a smoother transition when jumping off the Dropship
 	player.MovementDisable() // Disable all movement but let them look around still
 	player.ConsumeDoubleJump() // MovementDisable doesn't prevent double jumps
