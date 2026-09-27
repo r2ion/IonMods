@@ -61,6 +61,12 @@ entity function SpawnCloakDrone( int team, vector origin, vector angles, vector 
 	cloakedDrone.Show()
 	cloakedDrone.EnableNPCFlag( NPC_IGNORE_ALL )
 
+	entity mover = CreateScriptMover( origin, angles )
+	cloakedDrone.Freeze()
+	cloakedDrone.SetParent( mover, "", true )
+	cloakedDrone.MarkAsNonMovingAttachment()
+	thread CloakedDroneMoverLifetime( cloakedDrone, mover )
+
 	EmitSoundOnEntity( cloakedDrone, CLOAKED_DRONE_HOVER_LOOP_SFX )
 	EmitSoundOnEntity( cloakedDrone, CLOAKED_DRONE_LOOPING_SFX )
 	EmitSoundOnEntity( cloakedDrone, CLOAKED_DRONE_WARP_IN_SFX )
@@ -87,6 +93,46 @@ entity function SpawnCloakDrone( int team, vector origin, vector angles, vector 
 	return cloakedDrone
 }
 
+void function CloakedDroneMoverLifetime( entity cloakedDrone, entity mover )
+{
+	cloakedDrone.EndSignal( "OnDestroy" )
+	cloakedDrone.EndSignal( "OnDeath" )
+	cloakedDrone.EndSignal( "DroneCrashing" )
+	mover.EndSignal( "OnDestroy" )
+
+	OnThreadEnd(
+		function() : ( cloakedDrone, mover )
+		{
+			if ( IsValid( cloakedDrone ) && cloakedDrone.GetParent() == mover )
+			{
+				cloakedDrone.ClearParent()
+				cloakedDrone.Unfreeze()
+			}
+			if ( IsValid( mover ) )
+				mover.Destroy()
+		}
+	)
+
+	WaitForever()
+}
+
+void function CloakedDroneMoveTo( entity cloakedDrone, vector goal )
+{
+	entity mover = cloakedDrone.GetParent()
+	vector delta = goal - mover.GetOrigin()
+	float moveTime = max( delta.Length() / CLOAKED_DRONE_SPEED, 0.25 )
+	mover.NonPhysicsMoveTo( goal, moveTime, 0.0, 0.0 )
+
+	if ( delta.LengthSqr() > 1.0 )
+	{
+		vector angles = mover.GetAngles()
+		float yaw = VectorToAngles( delta ).y
+		float turnTime = max( fabs( AngleDiff( yaw, angles.y ) ) / CLOAKED_DRONE_YAWRATE, 0.25 )
+		angles.y = yaw
+		mover.NonPhysicsRotateTo( angles, turnTime, 0.0, 0.0 )
+	}
+}
+
 function AddToGlobalCloakedDroneList( cloakedDrone )
 {
 	AddToScriptManagedEntArray( file.cloakedDronesManagedEntArrayID, cloakedDrone )
@@ -110,6 +156,7 @@ void function CloakedDroneWarpOutAndDestroy( entity cloakedDrone )
 {
 	cloakedDrone.EndSignal( "OnDestroy" )
 	cloakedDrone.EndSignal( "OnDeath" )
+	cloakedDrone.Signal( "DroneCleanup" )
 	cloakedDrone.SetInvulnerable()
 
 	CloakedDroneWarpOut( cloakedDrone, cloakedDrone.GetOrigin() )
@@ -411,16 +458,12 @@ void function CloakedDronePathFollowNPC( entity cloakedDrone, entity goalNPC )
 
 		// if we can't find a valid path find a new goal
 		if ( !path.goalValid )
-		{
-			waitthread CloakedDroneWarpOut( cloakedDrone, GetCloakTargetOrigin( goalNPC ) + < 0, 0, defaultHeight > )
-			CloakedDroneWarpIn( cloakedDrone, GetCloakTargetOrigin( goalNPC ) + < 0, 0, defaultHeight > )
-			continue
-		}
+			return
 
 		if ( cloakedDrone.s.isHidden == true )
 			CloakedDroneWarpIn( cloakedDrone, cloakedDrone.GetOrigin() )
 
-		thread AssaultOrigin( cloakedDrone, path.goal )
+		CloakedDroneMoveTo( cloakedDrone, path.goal )
 
 		float endTime = Time()
 		float elapsedTime = endTime - startTime
@@ -512,8 +555,8 @@ bool function CloakedDroneFindPathVertical( CloakDronePath path, array<float> tr
 		testHeight = traceHeights[ i ]
 		origin = cloakedDrone.GetOrigin()
 		offset = < 0, 0, defaultHeight + testHeight >
-		path.start = < origin.x, origin.y, defaultHeight + testHeight >
 		path.goal = GetCloakTargetOrigin( goalNPC ) + offset
+		path.start = < origin.x, origin.y, path.goal.z >
 
 		TraceResults result = TraceHull( path.start, path.goal, mins, maxs, [ cloakedDrone, goalNPC ], mask, TRACE_COLLISION_GROUP_NONE )
 		// DebugDrawLine( path.start, path.goal, 50, 50, 100, true, 1.0 )
@@ -570,17 +613,16 @@ void function CloakedDroneWarpOut( entity cloakedDrone, vector origin )
 
 	wait 2.0
 
-	cloakedDrone.DisableBehavior( "Follow" )
-	thread AssaultOrigin( cloakedDrone, origin )
-	cloakedDrone.SetOrigin( origin )
+	entity mover = cloakedDrone.GetParent()
+	mover.NonPhysicsStop()
+	mover.SetOrigin( origin )
 }
 
 void function CloakedDroneWarpIn( entity cloakedDrone, vector origin )
 {
-	cloakedDrone.DisableBehavior( "Follow" )
-	cloakedDrone.SetOrigin( origin )
-	PutEntityInSafeSpot( cloakedDrone, cloakedDrone, null, cloakedDrone.GetOrigin() + < 0, 0, 32 >, cloakedDrone.GetOrigin() )
-	thread AssaultOrigin( cloakedDrone, origin )
+	entity mover = cloakedDrone.GetParent()
+	mover.NonPhysicsStop()
+	mover.SetOrigin( origin )
 
 	EmitSoundOnEntity( cloakedDrone, CLOAKED_DRONE_HOVER_LOOP_SFX )
 	EmitSoundOnEntity( cloakedDrone, CLOAKED_DRONE_LOOPING_SFX )

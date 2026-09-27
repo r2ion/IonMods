@@ -18,6 +18,7 @@ function CloakerThink( entity cloaker, float radius, array<string> ents = [ "any
 					continue
 
 				CloakerDeCloaksGuy( guy )
+				guy.SetCanCloak( expect bool( value ) )
 			}
 		}
 	)
@@ -71,10 +72,14 @@ function CloakerThink( entity cloaker, float radius, array<string> ents = [ "any
 				if ( guy in cloaker.s.decloakList )
 					delete cloaker.s.decloakList[ guy ]
 
+				if ( guy in cloakList )
+					continue
+
 				if ( IsCloaked( guy ) )
 					continue
 
-				cloakList[ guy ] <- true
+				cloakList[ guy ] <- guy.CanCloak()
+				guy.SetCanCloak( true )
 				CloakerCloaksGuy( guy )
 			}
 		}
@@ -86,7 +91,10 @@ function CloakerThink( entity cloaker, float radius, array<string> ents = [ "any
 			delete cloakList[ guy ]
 
 			if ( IsAlive( guy ) )
+			{
 				CloakerDeCloaksGuy( guy )
+				guy.SetCanCloak( expect bool( value ) )
+			}
 		}
 
 		float endTime = Time()

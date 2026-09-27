@@ -4341,8 +4341,11 @@ void function FD_EmitSoundOnEntityOnlyToPlayer( entity targetEntity, entity play
 function FD_AttemptToRepairTurrets()
 {
 	//Repair turret on here rather than in the executeWave(), softlocking reasons
-	foreach (entity turret in GetEntArrayByClass_Expensive( "npc_turret_sentry" ) )
-		RepairTurret_WaveBreak( turret )
+	foreach ( entity turret in GetEntArrayByClass_Expensive( "npc_turret_sentry" ) )
+	{
+		if ( IsAlive( turret ) )
+			RepairTurret_WaveBreak( turret )
+	}
 }
 
 void function PvPGlitchMonitor( entity player )

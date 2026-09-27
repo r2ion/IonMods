@@ -1079,6 +1079,16 @@ bool function ShouldRunEvac()
 
 void function GiveTitanToPlayer( entity player )
 {
+	if ( !IsValidPlayer( player ) || player.IsTitan() || IsAlive( player.GetPetTitan() ) )
+		return
+
+	EarnMeterMP_SetTitanLoadout( player )
+	PlayerEarnMeter_SetOwnedFrac( player, 1.0 )
+	PlayerEarnMeter_SoftReset( player )
+	if ( Riff_TitanQueueLimit() <= 0 || GetTitanCountForTeam( player.GetTeam() ) < Riff_TitanQueueLimit() )
+		PlayerEarnMeter_SetMode( player, eEarnMeterMode.DEFAULT )
+	player.SetPlayerNetInt( "goalState", eRewardState.AVAILABLE )
+	SetTitanAvailable( player )
 }
 
 float function GetTimeLimit_ForGameMode()
