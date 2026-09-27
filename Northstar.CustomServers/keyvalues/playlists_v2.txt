@@ -7,7 +7,7 @@ playlists
 			vars
 			{
 				player_force_respawn 5
-
+				pingspot_enabled 0
 				// These need to be defined somewhere for private match settings defaults to work, though I don't like this
 				run_epilogue 1 [$NORTHSTAR]
 				iron_rules 0 [$NORTHSTAR]
