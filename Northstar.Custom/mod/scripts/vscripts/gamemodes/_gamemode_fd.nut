@@ -833,7 +833,10 @@ bool function runWave( int waveIndex, bool shouldDoBuyTime )
 	if ( waveIndex > 0 )
 	{
 		foreach ( entity player in GetPlayerArray() )
+		{
+			Remote_CallFunction_NonReplay( player, "ServerCallback_FD_ClearPreParty" )
 			Remote_CallFunction_NonReplay( player, "ServerCallback_FD_AnnouncePreParty", enemys[0], enemys[1], enemys[2], enemys[3], enemys[4], enemys[5], enemys[6], enemys[7], enemys[8] )
+		}
 	}
 	
 	if ( waveIndex < file.waveAnnouncement.len() && file.waveAnnouncement[waveIndex] != "" && !file.waveRestart )
@@ -1213,7 +1216,12 @@ void function WaveBreak_ShowPlayerBonus()
 	int highestScore
 	entity highestScore_player
 	
-	MessageToTeam( TEAM_MILITIA, eEventNotifications.FD_NotifyWaveBonusIncoming )
+	foreach ( entity player in GetPlayerArrayOfTeam( TEAM_MILITIA ) )
+	{
+		Remote_CallFunction_NonReplay( player, "ServerCallback_FD_ClearPreParty" )
+		MessageToPlayer( player, eEventNotifications.FD_NotifyWaveBonusIncoming )
+	}
+
 	wait 3
 	
 	print( "Showing Player Stats: Wave Complete" )
@@ -2609,9 +2617,10 @@ void function TickSpawnThreaded( entity tick )
 void function AddTurretSentry( entity turret )
 {
 	entity player = turret.GetBossPlayer()
-	if ( player != null && player.GetTeam() == TEAM_MILITIA )
+	if ( turret.GetTeam() == TEAM_MILITIA )
 	{
-		UpdatePlayerStat( player, "fd_stats", "turretsPlaced" )
+		if ( IsValidPlayer( player ) )
+			UpdatePlayerStat( player, "fd_stats", "turretsPlaced" )
 		
 		turret.Minimap_AlwaysShow( TEAM_MILITIA, null )
 		turret.Minimap_SetHeightTracking( true )
@@ -3609,7 +3618,7 @@ void function FD_SetupEpilogue()
 
 void function FD_Epilogue()
 {
-	if ( IsHarvesterAlive( fd_harvester.harvester ) || file.isLiveFireMap )
+	if ( GetCurrentPlaylistVarInt( "run_epilogue", 1 ) != 1 || IsHarvesterAlive( fd_harvester.harvester ) || file.isLiveFireMap )
 		thread FD_Epilogue_threaded()
 	else
 	{

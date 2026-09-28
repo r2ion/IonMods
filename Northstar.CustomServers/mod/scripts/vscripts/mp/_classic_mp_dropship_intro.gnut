@@ -76,27 +76,33 @@ void function OnPrematchStart_Threaded()
 	file.imcDropships.clear()
 
 	// Try to gather all possible Dropship spawn points for Team
+	bool isFrontierDefense = GAMETYPE == FD
+	int maxDropshipsPerTeam = isFrontierDefense ? 1 : 2
 	array<entity> validDropshipSpawns
 	array<entity> dropshipSpawns = GetEntArrayByClass_Expensive( "info_spawnpoint_dropship_start" )
 	foreach ( entity dropshipSpawn in dropshipSpawns )
 	{
-		if ( GameModeRemove( dropshipSpawn ) )
+		if ( GameModeRemove( dropshipSpawn ) || ( isFrontierDefense && dropshipSpawn.GetTeam() != TEAM_MILITIA ) )
 			continue
 
 		validDropshipSpawns.append( dropshipSpawn )
 	}
 
 	// Use any spawn point if not enough valid for this Gamemode exists
-	if ( validDropshipSpawns.len() < 2 )
+	if ( validDropshipSpawns.len() < maxDropshipsPerTeam )
 		validDropshipSpawns = dropshipSpawns
 
 	// spawn dropships
 	foreach ( entity dropshipSpawn in validDropshipSpawns )
 	{
-		int createTeam = HasSwitchedSides() ? GetOtherTeam( dropshipSpawn.GetTeam() ) : dropshipSpawn.GetTeam()
+		// only want to run 1 ship for FD
+		if ( isFrontierDefense && dropshipSpawn.GetTeam() != TEAM_MILITIA )
+			continue
+
+		int createTeam = isFrontierDefense ? TEAM_MILITIA : ( HasSwitchedSides() ? GetOtherTeam( dropshipSpawn.GetTeam() ) : dropshipSpawn.GetTeam() )
 		table<entity, array<entity> > teamDropships = createTeam == TEAM_MILITIA ? file.militiaDropships : file.imcDropships
 
-		if ( teamDropships.len() >= 2 )
+		if ( teamDropships.len() >= maxDropshipsPerTeam )
 			continue
 
 		entity dropship = CreateDropship( createTeam, dropshipSpawn.GetOrigin(), dropshipSpawn.GetAngles() )
@@ -116,7 +122,7 @@ void function OnPrematchStart_Threaded()
 
 		thread PlayAnim( dropship, "dropship_classic_mp_flyin" )
 
-		if ( file.imcDropships.len() >= 2 && file.militiaDropships.len() >= 2 )
+		if ( isFrontierDefense || ( file.imcDropships.len() >= 2 && file.militiaDropships.len() >= 2 ) )
 			break
 	}
 
