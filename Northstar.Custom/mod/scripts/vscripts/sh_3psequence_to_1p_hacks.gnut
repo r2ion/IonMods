@@ -2,6 +2,7 @@ global function FirstPersonSequenceForce1P_Init
 global function FirstPersonSequenceForce1P_InitPlaylistVars
 
 #if SERVER
+	global function ShouldRunFirstPersonSequence
 	global function FirstPersonSequenceForce1P
 #endif
 
@@ -44,6 +45,19 @@ void function FirstPersonSequenceForce1P_RegisterCustomNetworkFunctions()
 }
 
 #if SERVER
+	bool function ShouldRunFirstPersonSequence( entity player, bool isEmbark, bool isExecution )
+	{
+		if ( !player.IsPlayer() || player.IsBot() )
+			return false
+
+		if (
+			( isEmbark && GetUserInfoKVBool_Internal( player, "ns_embark_style", false ) ) ||
+			( isExecution && GetUserInfoKVBool_Internal( player, "ns_execution_style", false ) )
+		)
+			return true
+
+		return false
+	}
 	Forced1PSequenceData function FirstPersonSequenceForce1P( FirstPersonSequenceStruct sequence, entity player, entity other = null )
 	{
 		string attachment = FORCE1P_PILOT_1P_ATTACHMENT
