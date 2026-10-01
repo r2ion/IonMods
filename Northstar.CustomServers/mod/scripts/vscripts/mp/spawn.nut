@@ -20,7 +20,7 @@ global function DecideSpawnZone_Generic
 
 global function IsSpawnpointValid
 global function IsValidGamemodeSpawnpoint
-
+global function ToggleSpawnNodeInUse
 global struct spawnZoneProperties
 {
 	int controllingTeam = TEAM_UNASSIGNED
@@ -114,6 +114,11 @@ void function InitSpawnpoint( entity spawnpoint )
 	spawnpoint.s.enabled <- true
 	spawnpoint.s.lastUsedTime <- -9999.0
 	spawnpoint.s.inUse <- false // for drop pod logic
+}
+
+void function ToggleSpawnNodeInUse( entity spawnpoint, bool isInUse )
+{
+	spawnpoint.s.inUse = isInUse
 }
 
 /*

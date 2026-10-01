@@ -543,96 +543,203 @@ void function RespawnAsPilot( entity player )
 	player.RespawnPlayer( FindSpawnPoint( player, false, ( ShouldStartSpawn( player ) || Flag( "ForceStartSpawn" ) ) && !IsFFAGame() ) )
 }
 
-void function RespawnAsTitan( entity player, bool manualPosition = false )
+void function RespawnAsTitan( entity player, bool normalTitanfall = false )
 {
-	// respawn crash exploit hotfix
-	if ( IsAlive( player ) )
+	if ( !PlayerCanSpawn( player ) )
 		return
+
+	bool instantRespawn = ( !ShouldDoTitanfall() || GetCurrentPlaylistVarInt( "instant_respawn_as_titan", 0 ) == 1 )
+	// Override if map needs to do forced warpfall such as Boomtown due the ceiling
+	if ( normalTitanfall && Flag( "LevelHasRoof" ) || instantRespawn || !GetConVarBool( "ns_cinematic_titanfall" ) )
+		normalTitanfall = false
 
 	player.Signal( "PlayerRespawnStarted" )
 
 	player.isSpawning = true
-	entity spawnpoint = FindSpawnPoint( player, true, ( ShouldStartSpawn( player ) || Flag( "ForceStartSpawn" ) ) && !IsFFAGame() )
+	player.isSpawningHotDroppingAsTitan = true
 
+	entity spawnpoint = FindSpawnPoint( player, true, ( ShouldStartSpawn( player ) || Flag( "ForceStartSpawn" ) ) )
 	if ( file.recalculateRespawnAsTitanStartPointCallback != null )
 		spawnpoint = file.recalculateRespawnAsTitanStartPointCallback( player, spawnpoint )
 
+	ToggleSpawnNodeInUse( spawnpoint, true )
 	TitanLoadoutDef titanLoadout = GetTitanLoadoutForPlayer( player )
 
-	asset model = GetPlayerSettingsAssetForClassName( titanLoadout.setFile, "bodymodel" )
-	Attachment warpAttach = GetAttachmentAtTimeFromModel( model, "at_hotdrop_01", "offset", spawnpoint.GetOrigin(), spawnpoint.GetAngles(), 0 )
-	PlayFX( TURBO_WARP_FX, warpAttach.position, warpAttach.angle )
+	if ( !normalTitanfall && !instantRespawn )
+	{
+		asset model = GetPlayerSettingsAssetForClassName( titanLoadout.setFile, "bodymodel" )
+		Attachment warpAttach = GetAttachmentAtTimeFromModel( model, "at_hotdrop_01", "offset", spawnpoint.GetOrigin(), spawnpoint.GetAngles(), 0 )
+		entity warpFX = PlayFX( TURBO_WARP_FX, warpAttach.position, warpAttach.angle )
+		warpFX.FXEnableRenderAlways()
+		warpFX.DisableHibernation()
+	}
 
 	entity titan = CreateAutoTitanForPlayer_FromTitanLoadout( player, titanLoadout, spawnpoint.GetOrigin(), spawnpoint.GetAngles() )
 	DispatchSpawn( titan )
-	player.SetPetTitan( null ) // prevent embark prompt from showing up
+	titan.ContextAction_SetBusy() // This is prevent a race condition with the ability of players being able to spawn into their Titans
+	HideName( titan )
+	titan.SetValidHealthBarTarget( false ) // Hide HP bar overhead
+	titan.UnsetUsable() // Prevent embark prompt from showing up
+	ClearTitanAvailable( player ) // Clear titan availability, so faction leader won't advise "Titan Ready" during spawn
 
-	AddCinematicFlag( player, CE_FLAG_CLASSIC_MP_SPAWNING ) // hide hud
+	AddCinematicFlag( player, CE_FLAG_CLASSIC_MP_SPAWNING )
 
-	// do titanfall scoreevent
-	if ( !level.firstTitanfall )
-	{
-		AddPlayerScore( player, "FirstTitanfall", player )
-
-		#if HAS_STATS
-			UpdatePlayerStat( player, "misc_stats", "titanFallsFirst" )
-		#endif
-
-		level.firstTitanfall = true
-	}
-	else
-	{
-		AddPlayerScore( player, "Titanfall", player )
-	}
-
-	entity camera = CreateTitanDropCamera( spawnpoint.GetAngles(), < 90, titan.GetAngles().y, 0 > )
-	camera.SetParent( titan )
-
-	// calc offset for spawnpoint angle
-	// todo this seems bad but too lazy to figure it out rn
-	// vector xyOffset = RotateAroundOrigin2D( < 44, 0, 0 >, < 0, 0, 0>, spawnpoint.GetAngles().y )
-	// xyOffset.z = 520 // < 44, 0, 520 > at 0,0,0, seems to be the offset used in tf2
-	// print( xyOffset )
-
-	vector xyOffset = RotateAroundOrigin2D( < 44, 0, 520 >, < 0, 0, 0 >, spawnpoint.GetAngles().y )
-
-	camera.SetLocalOrigin( xyOffset )
-	camera.SetLocalAngles( < camera.GetAngles().x, spawnpoint.GetAngles().y, camera.GetAngles().z > ) // this straight up just does not work lol
-	camera.Fire( "Enable", "!activator", 0, player )
-
+	player.EndSignal( "OnDeath" ) // In case of cinematic titanfall and Round End code is killing everything in cleanup function
 	player.EndSignal( "OnDestroy" )
-	titan.EndSignal( "OnDestroy" )
+	bool playerCouldDisembark = CanDisembark( player ) // Check to save in case of cinematic titanfall further below
+
+	entity camera
+
 	OnThreadEnd(
-		function() : ( player, titan, camera )
+		function() : ( player, titan, camera, spawnpoint, normalTitanfall, playerCouldDisembark )
 		{
 			if ( IsValid( player ) )
 			{
-				RemoveCinematicFlag( player, CE_FLAG_CLASSIC_MP_SPAWNING ) // show hud
 				player.isSpawning = false
+				player.isSpawningHotDroppingAsTitan = false
+				RemoveCinematicFlag( player, CE_FLAG_CLASSIC_MP_SPAWNING )
+
+				if ( player.IsInvulnerable() ) // Clear Invulnerability from the cinematic animation
+					player.ClearInvulnerable()
+
+				if ( normalTitanfall ) // Cleanups if spawning from cinematic animation
+				{
+					DeleteAnimEvent( player, "titan_impact" )
+					DeleteAnimEvent( player, "second_stage" )
+					player.SetTouchTriggers( true )
+					player.SetNoTarget( false )
+					player.SetNoTargetSmartAmmo( false )
+					player.EnableWeaponViewModel()
+					DeployAndEnableWeapons( player )
+					ClearPlayerAnimViewEntity( player )
+					Remote_CallFunction_Replay( player, "ServerCallback_UpdateTitanModeHUD" ) // For Tone because look like holstered offhands prevents her from getting the Lock-Ons hud elements
+
+					entity soul = player.GetTitanSoul()
+					if ( IsValid( soul ) )
+					{
+						entity domeShield = soul.soul.bubbleShield
+						if ( IsValid( domeShield ) )
+						{
+							domeShield.ClearParent() // Clear parenting when player gain control so the Bubble shield doesn't follow their movement
+							domeShield.SetOwner( player ) // Shoot through
+						}
+					}
+				}
+				else
+					GiveTitanfallScoreMedal( player ) // In case of classic Warpfall animation, give the Titanfall Score Medal at this moment, so player can actually see it
+
+				if ( player.ContextAction_IsBusy() )
+					player.ContextAction_ClearBusy()
+
+				PutEntityInSafeSpot( player, null, null, spawnpoint.GetOrigin(), player.GetOrigin() ) // Just to Ensure player is not clipping in any geometry
+				if ( normalTitanfall && playerCouldDisembark ) // LTS/Iron Rules check to avoid bypass confusion
+					Disembark_Allow( player )
 			}
 
 			if ( IsValid( titan ) )
-				titan.Destroy() // pilotbecomestitan leaves an npc titan that we need to delete
-			else
-				RespawnAsPilot( player ) // this is 100% an edgecase, just avoid softlocking if we ever hit it in playable gamestates
+				titan.Destroy()
+			else if ( !IsAlive( player ) ) // Respawn player anyways if Titan was killed during animation from normal Warpfall animation, won't affect Cinematic because player is already Respawned in there
+				RespawnAsPilot( player )
 
-			camera.Fire( "Disable", "!activator", 0, player )
-			camera.Destroy()
+			if ( IsValid( camera ) )
+				camera.Destroy()
+
+			if ( IsValid( spawnpoint ) )
+				ToggleSpawnNodeInUse( spawnpoint, false )
 		}
 	)
 
-	waitthread TitanHotDrop( titan, "at_hotdrop_01", spawnpoint.GetOrigin(), spawnpoint.GetAngles(), player, camera ) // do hotdrop anim
+	if ( instantRespawn ) // Respawn instantly
+	{
+		DoRespawnPlayer( player, spawnpoint )
+		TeleportToEnt( player, titan )
+		PilotBecomesTitan( player, titan )
+		EmitSoundOnEntity( player, "Timeshift_Scr_InvoluntaryShift" )
+		PlayFXOnEntityForEveryoneExceptPlayer( $"P_phase_shift_main_XO", player, player )
+	}
+	else if ( normalTitanfall ) // First Person Cinematic Titanfall
+	{
+		DoRespawnPlayer( player, spawnpoint )
+		PilotBecomesTitan( player, titan )
+		Disembark_Disallow( player ) // Disable disembarking so players can't do some wild stuff while the animation is happening
+		titan.Destroy() // Destroy the Titan right here as the player itself will be doing the animation already as a Titan
 
-	player.RespawnPlayer( null ) // spawn player as pilot so they get their pilot loadout on embark
-	player.SetOrigin( titan.GetOrigin() )
-	ClearTitanAvailable( player ) // titanfall succeed, clear titan availability
+		player.SetInvulnerable()
+		player.ContextAction_SetBusy() // Set player context action as busy to prevent problems with many interactors
+		player.SetTouchTriggers( false ) // Prevents OOB triggers during animation
+		player.SetNoTarget( true ) // AI wont try to shoot players while they drop
+		player.SetNoTargetSmartAmmo( true ) // Prevent Tone, Archer and Predator Cannon from locking on drop
+		HolsterAndDisableWeapons( player )
+		player.DisableWeaponViewModel()
+		TeleportToEnt( player, spawnpoint )
+		HideName( player ) // Hides overhead name during animation, OnTitanHotdropImpact restores this from the anim event
+		GiveTitanfallScoreMedal( player )
+		ScreenFadeFromBlack( player, 0.5, 0.5 )
 
-	// don't make player titan when entity batteryContainer is not valid.
-	// This will prevent a servercrash that sometimes occur when evac is disabled and somebody is calling a titan in the defeat screen.
-	if ( IsValid( titan.GetTitanSoul().soul.batteryContainer ) )
-		PilotBecomesTitan( player, titan ) // make player titan
-	else
-		print( "batteryContainer is not a valid entity in RespawnAsTitan(). Skipping PilotBecomesTitan()." )
+		AddAnimEvent( player, "titan_impact", OnTitanHotdropImpact ) // Brought from PlayersTitanHotdrops function to properly work
+		AddAnimEvent( player, "second_stage", OnReplacementTitanSecondStage, spawnpoint.GetOrigin() ) // Brought from PlayersTitanHotdrops function to properly work
+
+		EmitDifferentSoundsAtPositionForPlayerAndWorld(
+			"titan_hot_drop_turbo_begin",
+			"titan_hot_drop_turbo_begin_3P",
+			spawnpoint.GetOrigin(),
+			player,
+			player.GetTeam()
+		) // Brought from PlayersTitanHotdrops function to play the Titanfall sound
+		EmitSoundOnEntityOnlyToPlayer( player, player, "titan_hot_drop_turbo_begin" ) // Play again only for player just to volume it up a bit since it's super quiet sound in 1st Person
+
+		float impactTime = GetHotDropImpactTime( player, "at_hotdrop_drop_2knee_turbo" )
+		delaythread( impactTime ) CreateParentedBubbleShield(
+			player,
+			spawnpoint.GetOrigin(),
+			spawnpoint.GetAngles(),
+			player.GetSequenceDuration( "at_hotdrop_quickstand" ) + 3
+		) // Created Domeshield for the entire deploying animation + 3 seconds of lenience
+		delaythread( impactTime - 0.5 ) EmitSoundOnEntityOnlyToPlayer( player, player, "TDay_Intro_TitanFall_Impact" ) // Landing sound in first person from TDay, half second early to sync properly with the actual Landing
+
+		// Actual Titanfall animation, sadly MP Titans don't have viewmodel animations for this like BT does
+		FirstPersonSequenceStruct titanDropSequence
+		titanDropSequence.thirdPersonAnim = "at_hotdrop_drop_2knee_turbo"
+		titanDropSequence.teleport = true
+		titanDropSequence.snapPlayerFeetToEyes = false
+		titanDropSequence.viewConeFunction = ViewConeNarrow
+		waitthread FirstPersonSequence( titanDropSequence, player )
+
+		// Getting up and armed animation
+		FirstPersonSequenceStruct titanStandSequence
+		titanStandSequence.thirdPersonAnim = "at_hotdrop_quickstand"
+		titanStandSequence.snapPlayerFeetToEyes = false
+		titanStandSequence.viewConeFunction = ViewConeNarrow
+		waitthread FirstPersonSequence( titanStandSequence, player )
+	}
+	else // Classic Warpfall animation camera
+	{
+		camera = CreateTitanDropCamera( spawnpoint.GetAngles(), < 90, titan.GetAngles().y, 0 > )
+		camera.SetParent( titan )
+
+		vector xyOffset = RotateAroundOrigin2D( < 44, 0, 520 >, < 0, 0, 0 >, spawnpoint.GetAngles().y )
+
+		camera.SetLocalOrigin( xyOffset )
+		camera.SetLocalAngles( < camera.GetAngles().x, spawnpoint.GetAngles().y, camera.GetAngles().z > ) // this straight up just does not work lol
+		player.SetViewEntity( camera, true )
+
+		titan.EndSignal( "OnDeath" )
+		titan.EndSignal( "OnDestroy" )
+		TeleportToEnt( titan, spawnpoint )
+
+		waitthread TitanHotDrop( titan, "at_hotdrop_01", spawnpoint.GetOrigin(), spawnpoint.GetAngles(), player, camera )
+		DoRespawnPlayer( player, spawnpoint )
+		TeleportToEnt( player, titan )
+		PilotBecomesTitan( player, titan )
+	}
+}
+
+void function OnReplacementTitanSecondStage( entity player )
+{
+	vector origin = expect vector( GetOptionalAnimEventVar( player, "second_stage" ) )
+	EmitSoundOnEntityOnlyToPlayer( player, player, "titan_drop_pod_turbo_landing" )
+	EmitSoundOnEntityOnlyToPlayer( player, player, "titan_drop_pod_turbo_landing" ) // Double sound just to volume it up because it's also quiet in 1st Person
+	EmitSoundAtPositionExceptToPlayer( player.GetTeam(), origin, player, "titan_drop_pod_turbo_landing_3P" )
 }
 
 /*
