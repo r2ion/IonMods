@@ -811,6 +811,9 @@ void function FrontlineDeath( entity ent, var damageInfo )
 	if ( team == TEAM_BOTH )
 		return
 
+	if ( IsFFAGame() )
+		return
+
 	CheckFrontlineOverrun( team )
 }
 
