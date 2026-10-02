@@ -378,6 +378,9 @@ function CheckFrontlineOverrun( losingTeam )
 	if ( GetGameState() >= eGameState.WinnerDetermined )
 		return
 
+	if ( IsFFAGame() )
+		return
+
 	local otherTeam = losingTeam == TEAM_IMC ? TEAM_MILITIA : TEAM_IMC
 
 	local teamScore = [ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]
