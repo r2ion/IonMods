@@ -475,10 +475,10 @@ void function GameStateEnter_Playing_Threaded()
 				winningTeam = file.timeoutWinnerDecisionFunc()
 			else
 				winningTeam = GetWinningTeamWithFFASupport()
-
+			bool shouldDoSuddenDeath = ( file.suddenDeathBased || IsSuddenDeathGameMode() ) && winningTeam == TEAM_UNASSIGNED
 			if ( file.switchSidesBased && !file.hasSwitchedSides && !IsRoundBased() ) // in roundbased modes, we handle this in setwinner
 				SetGameState( eGameState.SwitchingSides )
-			else if ( file.suddenDeathBased && winningTeam == TEAM_UNASSIGNED ) // suddendeath if we draw and suddendeath is enabled and haven't switched sides
+			else if ( shouldDoSuddenDeath ) // suddendeath if we draw and suddendeath is enabled and haven't switched sides
 				SetGameState( eGameState.SuddenDeath )
 			else
 				SetWinner( winningTeam )
@@ -531,7 +531,13 @@ void function GameStateEnter_WinnerDetermined_Threaded()
 				GameRules_GetTeamScore2( TEAM_IMC )
 			)
 		else
-			Remote_CallFunction_NonReplay( player, "ServerCallback_AnnounceWinner", winningTeam, announcementSubstr, ROUND_WINNING_KILL_REPLAY_SCREEN_FADE_TIME )
+			Remote_CallFunction_NonReplay(
+				player,
+				"ServerCallback_AnnounceWinner",
+				winningTeam,
+				announcementSubstr,
+				ROUND_WINNING_KILL_REPLAY_SCREEN_FADE_TIME
+			)
 
 		if ( player.GetTeam() == winningTeam )
 			UnlockAchievement( player, achievements.MP_WIN )
