@@ -979,6 +979,7 @@ bool function runWave( int waveIndex, bool shouldDoBuyTime )
 		
 		if ( FD_PlayersHaveRestartsLeft() )
 		{
+			SetShouldUsePickLoadoutScreen( false )
 			SetWinner( TEAM_IMC, "", "", false )
 			PlayFactionDialogueToTeam( "fd_baseDeath", TEAM_MILITIA, true )
 			foreach ( entity player in GetPlayerArrayOfTeam( TEAM_MILITIA ) )
