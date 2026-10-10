@@ -236,6 +236,10 @@ playlists
 				max_players 16
 				max_teams 2
 				classic_mp 1
+				scorelimit 3
+				timelimit 5
+				roundtimelimit 5
+				roundscorelimit 3
 
 				gamemode_score_hint #GAMEMODE_SCORE_HINT_TDM
 			}
@@ -715,6 +719,7 @@ playlists
 						mp_relic02 1
 						mp_wargames 1
 						mp_rise 1
+						mp_swampland 1
 					}
 				}
 			}
@@ -825,6 +830,10 @@ playlists
 				image ps
 				//mixtape_slot 7
 				mixtape_timeout 120
+				scorelimit 3
+				timelimit 5
+				roundtimelimit 5
+				roundscorelimit 3
 				visible 0
 			}
 			gamemodes

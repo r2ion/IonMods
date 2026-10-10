@@ -9,6 +9,7 @@ struct
 void function GamemodeHidden_Init()
 {
 	SetShouldUseRoundWinningKillReplay( true )
+	SetRoundBased( true )
 	SetLoadoutGracePeriodEnabled( false ) // prevent modifying loadouts with grace period
 	SetWeaponDropsEnabled( false )
 	SetRespawnsEnabled( false )
@@ -24,6 +25,7 @@ void function GamemodeHidden_Init()
 	AddCallback_OnPlayerKilled( HiddenOnPlayerKilled )
 	AddCallback_GameStateEnter( eGameState.Playing, SelectFirstHidden )
 	AddCallback_GameStateEnter( eGameState.Postmatch, RemoveHidden )
+	AddCallback_OnRoundEndCleanup( ResetHiddenForNewRound )
 	SetTimeoutWinnerDecisionFunc( TimeoutCheckSurvivors )
 
 	RegisterSignal( "VisibleNotification" )
@@ -41,13 +43,20 @@ void function SelectFirstHidden()
 
 void function SelectFirstHiddenDelayed()
 {
+	// a round can end before the hidden is picked, don't pick one for a round that's already over
+	svGlobal.levelEnt.EndSignal( "CleanUpEntitiesForRoundEnd" )
+
 	wait 10.0 + RandomFloat( 5.0 )
 
-	array<entity> players = GetPlayerArray()
-	entity hidden = players[ RandomInt( players.len() ) ]
+	if ( GetGameState() != eGameState.Playing )
+		return
 
-	if ( hidden != null || IsAlive( hidden ) )
-		MakePlayerHidden( hidden ) // randomly selected player becomes hidden
+	array<entity> players = GetPlayerArrayOfTeam_Alive( TEAM_MILITIA )
+	if ( players.len() == 0 )
+		return
+
+	entity hidden = players[ RandomInt( players.len() ) ]
+	MakePlayerHidden( hidden ) // randomly selected player becomes hidden
 
 	foreach ( entity otherPlayer in GetPlayerArray() )
 		if ( hidden != otherPlayer )
@@ -86,7 +95,6 @@ void function MakePlayerHidden( entity player )
 		return
 
 	SetTeam( player, TEAM_IMC )
-	player.SetPlayerGameStat( PGS_ASSAULT_SCORE, 0 ) // reset kills
 	file.hiddens.append( player )
 	RespawnHidden( player )
 	thread PredatorMain( player )
@@ -122,8 +130,11 @@ void function RespawnHidden( entity player )
 
 void function GiveArcGrenade( entity player )
 {
+	player.EndSignal( "OnDeath" )
+	player.EndSignal( "OnDestroy" )
+
 	wait 45.0
-	if ( IsAlive( player ) || player != null )
+	if ( player.GetTeam() == TEAM_IMC )
 		player.GiveOffhandWeapon( "mp_weapon_grenade_emp", OFFHAND_ORDNANCE )
 }
 
@@ -161,6 +172,26 @@ void function RemoveHidden()
 	{
 		if ( player.GetTeam() == TEAM_IMC && player != null )
 			player.kv.VisibilityFlags = ENTITY_VISIBLE_TO_EVERYONE
+	}
+}
+
+// runs between rounds once every player has been killed off, so the next round starts with everyone as a survivor
+void function ResetHiddenForNewRound()
+{
+	file.hiddens.clear()
+	file.isVisible = false
+
+	// keep teams as they were on the last round so the postmatch scoreboard still shows who was the hidden
+	bool matchOver = GameRules_GetTeamScore( GetWinningTeamWithFFASupport() ) >= GameMode_GetRoundScoreLimit( GAMETYPE )
+
+	foreach ( entity player in GetPlayerArray() )
+	{
+		player.kv.VisibilityFlags = ENTITY_VISIBLE_TO_EVERYONE
+		NSDeleteStatusMessageOnPlayer( player, "visibleTitle" )
+		NSDeleteStatusMessageOnPlayer( player, "visibleDesc" )
+
+		if ( !matchOver && !IsPrivateMatchSpectator( player ) )
+			SetTeam( player, TEAM_MILITIA )
 	}
 }
 
@@ -230,8 +261,9 @@ void function VisibleNotification( entity player )
 
 int function TimeoutCheckSurvivors()
 {
-	if ( GetPlayerArrayOfTeam( TEAM_MILITIA ).len() > 0 )
-		return TEAM_IMC
+	// survivors win the round if any of them outlast the timer
+	if ( GetPlayerArrayOfTeam_Alive( TEAM_MILITIA ).len() > 0 )
+		return TEAM_MILITIA
 
-	return TEAM_MILITIA
+	return TEAM_IMC
 }
