@@ -55,6 +55,11 @@
 			"Name": "ns_allow_team_change",
 			"DefaultValue": "1",
 			"Flags": "REPLICATED"
+		},
+		{
+			"Name": "ns_cinematic_titanfall",
+			"DefaultValue": "1",
+			"HelpString": "Allows cinematic Titanfall animations when requested by the game mode."
 		}
 	],
 	"Scripts": [
