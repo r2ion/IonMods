@@ -4,6 +4,8 @@ struct
 {
 	bool isVisible = false
 	array<entity> hiddens
+	array<entity> hiddenQueue // players still waiting for their turn as the hidden this cycle, in pick order
+	array<entity> pickedThisCycle // players who have already been the hidden this cycle
 } file
 
 void function GamemodeHidden_Init()
@@ -51,12 +53,11 @@ void function SelectFirstHiddenDelayed()
 	if ( GetGameState() != eGameState.Playing )
 		return
 
-	array<entity> players = GetPlayerArrayOfTeam_Alive( TEAM_MILITIA )
-	if ( players.len() == 0 )
+	entity hidden = PickNextHidden()
+	if ( hidden == null )
 		return
 
-	entity hidden = players[ RandomInt( players.len() ) ]
-	MakePlayerHidden( hidden ) // randomly selected player becomes hidden
+	MakePlayerHidden( hidden )
 
 	foreach ( entity otherPlayer in GetPlayerArray() )
 		if ( hidden != otherPlayer )
@@ -65,6 +66,60 @@ void function SelectFirstHiddenDelayed()
 	PlayMusicToAll( eMusicPieceID.GAMEMODE_1 )
 
 	thread UpdateSurvivorsLoadout()
+}
+
+// every player gets one turn as the hidden before anyone gets a second one
+entity function PickNextHidden()
+{
+	ArrayRemoveInvalid( file.hiddenQueue )
+	ArrayRemoveInvalid( file.pickedThisCycle )
+
+	// players who haven't had a turn this cycle yet and aren't queued (first round, or joined mid-cycle) go to the back of the list
+	QueuePlayersForHidden( file.pickedThisCycle )
+
+	entity hidden = TakeFirstEligibleFromHiddenQueue()
+	if ( hidden == null )
+	{
+		// nobody left in this cycle can be picked right now, start a new cycle with everyone
+		file.pickedThisCycle.clear()
+		QueuePlayersForHidden( [] )
+		hidden = TakeFirstEligibleFromHiddenQueue()
+	}
+
+	if ( hidden != null )
+		file.pickedThisCycle.append( hidden )
+
+	return hidden
+}
+
+void function QueuePlayersForHidden( array<entity> exclude )
+{
+	array<entity> newPlayers
+	foreach ( entity player in GetPlayerArray() )
+	{
+		if ( IsPrivateMatchSpectator( player ) || file.hiddenQueue.contains( player ) || exclude.contains( player ) )
+			continue
+
+		newPlayers.append( player )
+	}
+
+	newPlayers.randomize()
+	file.hiddenQueue.extend( newPlayers )
+}
+
+entity function TakeFirstEligibleFromHiddenQueue()
+{
+	foreach ( int i, entity player in file.hiddenQueue )
+	{
+		// players who can't be picked this round (dead, spectating) keep their place in the list for the next round
+		if ( IsAlive( player ) && player.GetTeam() == TEAM_MILITIA && !IsPrivateMatchSpectator( player ) )
+		{
+			file.hiddenQueue.remove( i )
+			return player
+		}
+	}
+
+	return null
 }
 
 void function UpdateSurvivorsLoadout()
