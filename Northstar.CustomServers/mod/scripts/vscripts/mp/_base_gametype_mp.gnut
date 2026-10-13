@@ -58,6 +58,22 @@ void function SetIntermissionCamera( entity camera )
 	file.intermissionCamera = camera
 }
 
+void function StartPostmatchObserverMode( entity player )
+{
+	player.StopPhysics()
+
+	if ( !IsValid( file.intermissionCamera ) )
+	{
+		thread PlayerBecomesSpectator( player )
+		return
+	}
+
+	player.SetObserverModeStaticPosition( file.intermissionCamera.GetOrigin() )
+	player.SetObserverModeStaticAngles( file.intermissionCamera.GetAngles() )
+	player.StartObserverMode( OBS_MODE_STATIC_LOCKED )
+	player.SetObserverTarget( null )
+}
+
 /*
 ██████  ██       █████  ██    ██ ███████ ██████       ██████  ██████  ███    ██ ███    ██ ███████  ██████ ████████ ██  ██████  ███    ██
 ██   ██ ██      ██   ██  ██  ██  ██      ██   ██     ██      ██    ██ ████   ██ ████   ██ ██      ██         ██    ██ ██    ██ ████   ██
@@ -214,6 +230,8 @@ void function CodeCallback_OnClientConnectionCompleted( entity player )
 		else
 			thread PlayerBecomesSpectator( player )
 	}
+	else if ( GetGameState() == eGameState.Postmatch )
+		StartPostmatchObserverMode( player )
 }
 
 void function SpectateTTSMenuPlayer( entity player )
