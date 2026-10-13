@@ -179,7 +179,7 @@ void function AddTeamScore( int team, int amount )
 	int score = GameRules_GetTeamScore( team )
 	if ( score >= scoreLimit || GetGameState() == eGameState.SuddenDeath )
 		SetWinner( team )
-	else if ( ( file.switchSidesBased && !file.hasSwitchedSides ) && score >= ( scoreLimit.tofloat() / 2.0 ) )
+	else if ( ( file.switchSidesBased && !file.hasSwitchedSides ) && score >= ( scoreLimit / 2 ) )
 		SetGameState( eGameState.SwitchingSides )
 }
 
@@ -621,7 +621,7 @@ void function GameStateEnter_WinnerDetermined_Threaded()
 			else
 				SetGameState( eGameState.Postmatch )
 		}
-		else if ( file.switchSidesBased && !file.hasSwitchedSides && highestScore >= ( roundScoreLimit.tofloat() / 2.0 ) ) // round up
+		else if ( file.switchSidesBased && !file.hasSwitchedSides && highestScore >= ( roundScoreLimit / 2 ) ) // round down
 			SetGameState( eGameState.SwitchingSides ) // note: switchingsides will handle setting to pickloadout and prematch by itself
 		else if ( file.usePickLoadoutScreen )
 			SetGameState( eGameState.PickLoadout )
