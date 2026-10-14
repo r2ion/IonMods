@@ -94,8 +94,7 @@ global function ProgressionEnabledForPlayer
 
 			file.progressionEnabled[ player ] <- args[ 0 ] == "1"
 
-			// loadout validation when progression is turned on
-			if ( file.progressionEnabled[ player ] )
+			if ( file.progressionEnabled[ player ] && !EverythingUnlockedConVarEnabled() )
 				ValidateEquippedItems( player )
 
 			return true
