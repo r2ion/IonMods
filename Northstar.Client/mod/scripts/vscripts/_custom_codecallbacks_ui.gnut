@@ -20,7 +20,8 @@ struct
 	string error = ""
 	bool failed = false
 	bool downloading = false
-	int requiredModCount = 0
+	int modCount = 0
+	int unverifiedModCount = 0
 	int optionalModCount = 0
 	string serverModDownloadName = ""
 	bool modalChoiceActive = false
@@ -77,7 +78,8 @@ void function NSUICodeCallback_ConnectionStarted( bool scriptManaged )
 	file.error = ""
 	file.failed = false
 	file.downloading = false
-	file.requiredModCount = 0
+	file.modCount = 0
+	file.unverifiedModCount = 0
 	file.optionalModCount = 0
 	file.serverModDownloadName = ""
 
@@ -102,7 +104,8 @@ void function NSUICodeCallback_ConnectionMessage( string message )
 
 void function NSUICodeCallback_ConnectionStopped( string error )
 {
-	file.requiredModCount = 0
+	file.modCount = 0
+	file.unverifiedModCount = 0
 	file.optionalModCount = 0
 	file.serverModDownloadName = ""
 
@@ -208,9 +211,10 @@ void function ModDownloadRunning_Think()
 	}
 }
 
-void function NSUICodeCallback_ConfirmDownloadMods( int requiredCount, int optionalCount, string serverName )
+void function NSUICodeCallback_ConfirmDownloadMods( int modCount, int unverifiedCount, int optionalCount, string serverName )
 {
-	file.requiredModCount = requiredCount
+	file.modCount = modCount
+	file.unverifiedModCount = unverifiedCount
 	file.optionalModCount = optionalCount
 	file.serverModDownloadName = serverName
 	Signal( uiGlobal.signalDummy, "NSModsRequestConfirmation" )
@@ -286,8 +290,17 @@ void function ShowModDownloadConfirmationDialog()
 {
 	DialogData dialogData
 	dialogData.header = "#DIALOG_SERVERMODDL_HEADER"
-	dialogData.message = Localize( "#DIALOG_SERVERMODDL_MSG", file.serverModDownloadName, string( file.requiredModCount ), string( file.optionalModCount ) )
-	dialogData.image = $"ui/menu/common/dialog_error"
+	if ( file.optionalModCount > 0 )
+	{
+		if ( file.unverifiedModCount > 0 )
+			dialogData.message = Localize( "#DIALOG_SERVERMODDL_MSG_UNVERIFIED_OPTIONAL", file.serverModDownloadName, string( file.modCount ), string( file.unverifiedModCount ), string( file.optionalModCount ) )
+		else
+			dialogData.message = Localize( "#DIALOG_SERVERMODDL_MSG_OPTIONAL", file.serverModDownloadName, string( file.modCount ), string( file.optionalModCount ) )
+	}
+	else if ( file.unverifiedModCount > 0 )
+		dialogData.message = Localize( "#DIALOG_SERVERMODDL_MSG_UNVERIFIED", file.serverModDownloadName, string( file.modCount ), string( file.unverifiedModCount ) )
+	else
+		dialogData.message = Localize( "#DIALOG_SERVERMODDL_MSG", file.serverModDownloadName, string( file.modCount ) )
 	dialogData.forceChoice = true
 
 	AddDialogButton(
@@ -295,31 +308,37 @@ void function ShowModDownloadConfirmationDialog()
 		Localize( "#YES" ),
 		void function()
 		{
-			file.requiredModCount = 0
+			file.modCount = 0
+			file.unverifiedModCount = 0
 			file.optionalModCount = 0
 			file.serverModDownloadName = ""
 			NSDecideModDownload( 1 )
 			thread ConnectionRunning_Think()
 		}
 	)
-	AddDialogButton(
-		dialogData,
-		Localize( "#NO_SKIP" ),
-		void function()
-		{
-			file.requiredModCount = 0
-			file.optionalModCount = 0
-			file.serverModDownloadName = ""
-			NSDecideModDownload( 3 )
-			thread ConnectionRunning_Think()
-		}
-	)
+	if ( file.optionalModCount > 0 )
+	{
+		AddDialogButton(
+			dialogData,
+			Localize( "#NO_SKIP" ),
+			void function()
+			{
+				file.modCount = 0
+				file.unverifiedModCount = 0
+				file.optionalModCount = 0
+				file.serverModDownloadName = ""
+				NSDecideModDownload( 3 )
+				thread ConnectionRunning_Think()
+			}
+		)
+	}
 	AddDialogButton(
 		dialogData,
 		Localize( "#NO" ),
 		void function()
 		{
-			file.requiredModCount = 0
+			file.modCount = 0
+			file.unverifiedModCount = 0
 			file.optionalModCount = 0
 			file.serverModDownloadName = ""
 			NSDecideModDownload( 2 )
@@ -358,7 +377,7 @@ void function ConnectionRunning_Think()
 
 			if ( file.failed )
 				OpenErrorDialog( file.error )
-			else if ( file.requiredModCount > 0 || file.optionalModCount > 0 )
+			else if ( file.modCount > 0 )
 				ShowModDownloadConfirmationDialog()
 			else
 				CloseAllDialogs()
