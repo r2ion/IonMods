@@ -1,0 +1,10 @@
+WeaponData
+{
+	"OnWeaponPrimaryAttack" "OnWeaponPrimaryAttack_titanweapon_leadwall"
+
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titanweapon_leadwall_pred.nut"
+		"OnWeaponPrimaryAttack" "OnWeaponPrimaryAttack_titanweapon_leadwall_predicted"
+	}
+}

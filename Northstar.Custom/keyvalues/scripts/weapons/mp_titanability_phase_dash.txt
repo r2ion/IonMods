@@ -1,0 +1,15 @@
+WeaponData
+{
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titanability_phase_dash_pred.nut"
+		"OnWeaponPrimaryAttack" "OnWeaponPrimaryAttack_titanability_phase_dash_predicted"
+		"OnPredictionUpdate" "PhaseDash_PredictionUpdate"
+
+		State
+		{
+			"expireTime" "float"
+			"launchVelocity" "vector"
+		}
+	}
+}

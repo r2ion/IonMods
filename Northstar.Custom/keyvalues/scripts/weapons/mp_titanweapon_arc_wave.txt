@@ -1,0 +1,16 @@
+WeaponData
+{
+	"OnWeaponPrimaryAttack" "OnWeaponPrimaryAttack_titanweapon_arc_wave"
+
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titanweapon_arc_wave_pred.nut"
+		"OnWeaponPrimaryAttack" "OnWeaponPrimaryAttack_titanweapon_arc_wave_predicted"
+		"OnPredictionReconcile" "ArcWave_PredictionReconcile"
+
+		State
+		{
+			"shotCommand" "int"
+		}
+	}
+}

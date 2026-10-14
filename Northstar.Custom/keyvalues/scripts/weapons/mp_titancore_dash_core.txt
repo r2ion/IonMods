@@ -1,0 +1,17 @@
+WeaponData
+{
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titancore_dash_core_pred.nut"
+		"OnWeaponPrimaryAttack" "OnAbilityStart_Dash_CorePredicted"
+		"OnPredictionUpdate" "DashCore_PredictionUpdate"
+		"OnPredictionEnd" "DashCore_PredictionEnd"
+
+		State
+		{
+			"endTime" "float"
+			"previousPowerRegen" "float"
+			"previousDodgeDelay" "float"
+		}
+	}
+}

@@ -1,0 +1,17 @@
+WeaponData
+{
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titancore_shift_core_pred.nut"
+		"OnWeaponPrimaryAttack" "OnAbilityStart_Shift_CorePredicted"
+		"OnPredictionUpdate" "ShiftCore_PredictionUpdate"
+		"OnPredictionEnd" "ShiftCore_PredictionEnd"
+
+		State
+		{
+			"expiryTime" "float"
+			"previousPowerRegenRateScale" "float"
+			"soulHandle" "int"
+		}
+	}
+}

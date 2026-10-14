@@ -1,0 +1,27 @@
+WeaponData
+{
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titancore_flight_core_pred.nut"
+		"OnWeaponSustainedDischargeBegin" "OnAbilityStart_FlightCorePredicted"
+		"OnWeaponSustainedDischargeEnd" "OnAbilityEnd_FlightCorePredicted"
+		"OnPredictionUpdate" "FlightCore_PredictionUpdate"
+		"OnPredictionEnd" "FlightCore_PredictionEnd"
+
+		State
+		{
+			"startTime" "float"
+			"duration" "float"
+			"moveStunMultiplier" "float"
+			"horizontalSpeed" "float"
+			"previousGravity" "float"
+			"previousAirSpeed" "float"
+			"previousAirAcceleration" "float"
+			"previousGroundFriction" "float"
+			"previousDodgeDisabled" "bool"
+			"previousDisembarkEnabled" "bool"
+			"hoverEnded" "bool"
+			"disembarkLocked" "bool"
+		}
+	}
+}

@@ -1,0 +1,17 @@
+WeaponData
+{
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titanability_basic_block_pred.nut"
+		"OnWeaponActivate" "OnWeaponActivate_titanability_basic_block_predicted"
+		"OnWeaponDeactivate" "OnWeaponDeactivate_titanability_basic_block_predicted"
+		"OnPredictionUpdate" "BasicBlock_PredictionUpdate"
+		"OnPredictionEnd" "BasicBlock_PredictionEnd"
+		"OnPredictionReconcile" "BasicBlock_PredictionReconcile"
+
+		State
+		{
+			"active" "bool"
+		}
+	}
+}

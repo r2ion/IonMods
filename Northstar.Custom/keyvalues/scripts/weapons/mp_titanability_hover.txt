@@ -1,0 +1,26 @@
+WeaponData
+{
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titanability_hover_pred.nut"
+		"OnWeaponPrimaryAttack" "OnWeaponPrimaryAttack_TitanHoverPredicted"
+		"OnPredictionUpdate" "TitanHover_PredictionUpdate"
+		"OnPredictionEnd" "TitanHover_PredictionEnd"
+
+		State
+		{
+			"startTime" "float"
+			"moveStunMultiplier" "float"
+			"horizontalSpeed" "float"
+			"previousGravity" "float"
+			"previousAirSpeed" "float"
+			"previousAirAcceleration" "float"
+			"previousGroundFriction" "float"
+			"previousWallrunFriction" "float"
+			"previousDodgeDisabled" "bool"
+			"previousDisembarkEnabled" "bool"
+			"hoverEnded" "bool"
+			"disembarkLocked" "bool"
+		}
+	}
+}

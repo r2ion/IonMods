@@ -1,0 +1,16 @@
+WeaponData
+{
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titancore_lasercannon_pred.nut"
+		"OnWeaponSustainedDischargeBegin" "OnAbilityStart_LaserCannonPredicted"
+		"OnWeaponSustainedDischargeEnd" "OnAbilityEnd_LaserCannonPredicted"
+		"OnPredictionUpdate" "LaserCannon_PredictionUpdate"
+		"OnPredictionEnd" "LaserCannon_PredictionEnd"
+
+		State
+		{
+			"previousDodgeDisabled" "bool"
+		}
+	}
+}

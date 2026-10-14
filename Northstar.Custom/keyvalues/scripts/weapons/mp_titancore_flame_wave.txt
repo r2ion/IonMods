@@ -1,0 +1,16 @@
+WeaponData
+{
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titancore_flame_wave_pred.nut"
+		"OnWeaponChargeBegin" "OnAbilityCharge_FlameWavePredicted"
+		"OnWeaponChargeEnd" "OnAbilityChargeEnd_FlameWavePredicted"
+		"OnPredictionUpdate" "FlameWaveCharge_PredictionUpdate"
+		"OnPredictionEnd" "FlameWaveCharge_PredictionEnd"
+
+		State
+		{
+			"previousDisembarkEnabled" "bool"
+		}
+	}
+}

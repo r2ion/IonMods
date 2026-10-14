@@ -1,0 +1,8 @@
+WeaponData
+{
+	PredictedCallbacks [$EXTENDED]
+	{
+		"Script" "weapons/mp_titanability_rearm_pred.nut"
+		"OnWeaponPrimaryAttack" "OnWeaponPrimaryAttack_titanability_rearm_predicted"
+	}
+}
