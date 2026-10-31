@@ -10,6 +10,7 @@ struct
 	var menu
 	GridMenuData gridData
 	array<string> playerNames
+	array<string> playerUIDs
 	int selectedElemNum
 	bool donePopulating = false
 } file
@@ -106,7 +107,12 @@ void function PlayerButton_Activate( var button, int elemNum )
 		return
 
 	file.selectedElemNum = elemNum
-	// thread ConfirmFriendInvite_Thread()
+
+	if ( elemNum >= 0 && elemNum < file.playerUIDs.len() )
+	{
+		string uid = file.playerUIDs[ elemNum ]
+		ShowPlayerProfileCardForUID( uid )
+	}
 }
 
 void function PlayerButton_GetFocus( var button, int elemNum )
@@ -114,9 +120,10 @@ void function PlayerButton_GetFocus( var button, int elemNum )
 	UpdateFooterOptions()
 }
 
-void function PopulatePlayerlistFromCL( string name )
+void function PopulatePlayerlistFromCL( string name, string uid )
 {
 	file.playerNames.append( name )
+	file.playerUIDs.append( uid )
 }
 
 void function DonePopulatingPlayerlist()
@@ -127,4 +134,5 @@ void function DonePopulatingPlayerlist()
 void function ClearPlayerlist()
 {
 	file.playerNames.clear()
+	file.playerUIDs.clear()
 }

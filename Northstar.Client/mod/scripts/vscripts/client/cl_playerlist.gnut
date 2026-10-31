@@ -5,9 +5,8 @@ void function ClGetPlayerEntsTrampoline()
 {
 	foreach ( entity player in GetPlayerArray() )
 	{
-		RunUIScript( "PopulatePlayerlistFromCL", player.GetPlayerName() )
+		RunUIScript( "PopulatePlayerlistFromCL", player.GetPlayerName(), GetUID( player ) )
 	}
 
 	RunUIScript( "DonePopulatingPlayerlist" )
 }
-
